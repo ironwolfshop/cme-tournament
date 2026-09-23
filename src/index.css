@@ -441,11 +441,9 @@ body {
 @keyframes draft-reveal-exit {
   0% {
     opacity: 1;
-    transform: scale(1);
   }
   100% {
     opacity: 0;
-    transform: scale(1.04);
   }
 }
 
@@ -621,15 +619,15 @@ body {
   justify-content: center;
   --reveal-accent: #68adff;
   --reveal-accent-deep: #1e5cff;
-  --reveal-ms: 3200ms;
+  --reveal-ms: 5000ms;
 }
 
 .draft-reveal.is-enter {
-  animation: draft-reveal-enter 0.28s ease-out both;
+  animation: draft-reveal-enter 0.35s ease-out both;
 }
 
 .draft-reveal.is-exit {
-  animation: draft-reveal-exit 0.42s ease-in both;
+  animation: draft-reveal-exit 1s ease-out both;
 }
 
 .draft-reveal-veil {
@@ -688,6 +686,21 @@ body {
   animation: draft-reveal-card-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.draft-reveal-card.is-duo {
+  width: min(1480px, 94%);
+}
+
+.draft-reveal-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.draft-reveal-grid.is-duo {
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
 .draft-reveal-status {
   align-self: center;
   margin-bottom: 14px;
@@ -720,6 +733,14 @@ body {
     0 0 60px color-mix(in srgb, var(--reveal-accent) 28%, transparent);
 }
 
+.draft-reveal.is-duo .draft-reveal-stage {
+  height: 480px;
+}
+
+.draft-reveal.is-duo .burst-name {
+  font-size: clamp(28px, 3.2vw, 52px);
+}
+
 .draft-reveal-panel {
   position: absolute;
   inset: 0;
@@ -736,14 +757,14 @@ body {
 
 .draft-reveal-panel.panel-player.is-leaving {
   opacity: 0;
-  transform: scale(1.08);
+  transform: none;
   z-index: 1;
   pointer-events: none;
 }
 
 .draft-reveal-panel.panel-hero.is-waiting {
   opacity: 0;
-  transform: scale(0.96);
+  transform: none;
   z-index: 1;
   pointer-events: none;
 }

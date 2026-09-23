@@ -9,7 +9,7 @@ export type Hero = {
 }
 
 /** Bump when re-downloading portraits so grids pick up new files (cache bust). */
-export const HERO_ASSET_VERSION = 'hirara-20260923'
+export const HERO_ASSET_VERSION = 'splashes-20260923'
 
 /** Local default-skin splash (downloaded via scripts/download-*-portraits.mjs). */
 export function heroLocalSplashUrl(heroId: string): string {

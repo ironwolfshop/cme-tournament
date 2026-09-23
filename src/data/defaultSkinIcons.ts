@@ -132,4 +132,6 @@ export const DEFAULT_SKIN_ICON: Record<string, string> = {
   "obsidia": "https://raw.githubusercontent.com/Sparkies01/Splash/main/Obsidia/Sovereign%20of%20Dark's%20End.png",
   "sora": "https://raw.githubusercontent.com/Sparkies01/Splash/main/Sora/Shifting%20Cloud.png",
   "marcel": "https://raw.githubusercontent.com/Sparkies01/Splash/main/Marcel/Soul%20Photographer.png",
+  "hirara": "/heroes/hirara.png",
+
 }

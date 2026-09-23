@@ -275,12 +275,21 @@ export default function ControlPage() {
     const team = target.side === 'blue' ? blue : red
     setSelected(id)
     setManual(null)
-    setToast(
-      `${getHero(id)?.name ?? 'Hero'} ${target.type === 'bans' ? 'banned' : 'locked'} · ${team.tag}`,
-    )
     const d = draftActions()
-    if (target.type === 'bans') d.setBan(target.side, target.index, id)
-    else d.setPick(target.side, target.index, id)
+    if (target.type === 'bans') {
+      d.setBan(target.side, target.index, id)
+      setToast(`${getHero(id)?.name ?? 'Hero'} banned · ${team.tag}`)
+      return
+    }
+    const step = queue.find((s) => s.side === target.side && s.slot === target.index)
+    d.setPick(target.side, target.index, id)
+    if (step && step.blockSize > 1 && step.indexInBlock < step.blockSize - 1) {
+      setToast(
+        `${getHero(id)?.name ?? 'Hero'} selected · ${step.indexInBlock + 1}/${step.blockSize} — pick one more to lock`,
+      )
+      return
+    }
+    setToast(`${getHero(id)?.name ?? 'Hero'} locked · ${team.tag}`)
   }
 
   function setPhase(next: 'ban' | 'pick' | 'done') {

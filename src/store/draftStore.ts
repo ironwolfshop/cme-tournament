@@ -30,9 +30,22 @@ export type PredictorEntry = {
   percent: number
 }
 
+export type DraftRevealEntry = {
+  side: TeamSide
+  slot: number
+  heroId: string
+  playerName: string
+  playerPhoto?: string
+  teamTag: string
+  teamName: string
+}
+
 export type DraftReveal = {
   id: string
   kind: 'pick' | 'ban'
+  /** One card for single picks/bans; two cards for a completed 2-pick block. */
+  entries: DraftRevealEntry[]
+  /** Convenience mirrors of entries[0] for sync / older consumers. */
   side: TeamSide
   slot: number
   heroId: string
@@ -44,7 +57,71 @@ export type DraftReveal = {
 }
 
 /** Broadcast pick/ban reveal modal duration (must match DraftRevealOverlay). */
-export const DRAFT_REVEAL_MS = 5600
+export const DRAFT_REVEAL_MS = 5000
+
+function revealEntryFrom(
+  team: TeamState,
+  side: TeamSide,
+  slot: number,
+  heroId: string,
+  kind: 'pick' | 'ban',
+): DraftRevealEntry {
+  const player = team.players[slot]
+  return {
+    side,
+    slot,
+    heroId,
+    playerName:
+      kind === 'ban' ? team.tag : (player?.name?.trim() || team.tag),
+    playerPhoto: kind === 'ban' ? team.logo || undefined : player?.photo,
+    teamTag: team.tag,
+    teamName: team.name,
+  }
+}
+
+function makeReveal(
+  kind: 'pick' | 'ban',
+  entries: DraftRevealEntry[],
+  idSuffix: string,
+): DraftReveal {
+  const primary = entries[0]
+  return {
+    id: `${Date.now()}-${idSuffix}`,
+    kind,
+    entries,
+    side: primary.side,
+    slot: primary.slot,
+    heroId: primary.heroId,
+    playerName: primary.playerName,
+    playerPhoto: primary.playerPhoto,
+    teamTag: primary.teamTag,
+    teamName: primary.teamName,
+    startedAt: Date.now(),
+  }
+}
+
+function normalizeReveal(reveal: DraftReveal | null | undefined): DraftReveal | null {
+  if (!reveal) return null
+  if (reveal.entries?.length) {
+    return {
+      ...reveal,
+      entries: reveal.entries.map((e) => ({ ...e })),
+    }
+  }
+  // Older payloads without entries[]
+  const legacy = reveal as DraftReveal & { entries?: DraftRevealEntry[] }
+  if (!legacy.heroId) return null
+  const entry: DraftRevealEntry = {
+    side: legacy.side,
+    slot: legacy.slot,
+    heroId: legacy.heroId,
+    playerName: legacy.playerName,
+    playerPhoto: legacy.playerPhoto,
+    teamTag: legacy.teamTag,
+    teamName: legacy.teamName,
+  }
+  return { ...legacy, entries: [entry] }
+}
 
 export type DraftState = {
   matchLabel: string
@@ -186,7 +263,7 @@ function snapshot(state: DraftState, includeHistory = true): DraftState {
     predictorLabel: state.predictorLabel,
     predictor: state.predictor.map((p) => ({ ...p })),
     history: includeHistory ? state.history.slice(-40) : [],
-    reveal: state.reveal ? { ...state.reveal } : null,
+    reveal: normalizeReveal(state.reveal),
   }
 }
 
@@ -265,7 +342,7 @@ function normalizeHydrated(state: DraftState): DraftState {
     ...state,
     firstPickSide,
     pickOrderIndex: state.pickOrderIndex ?? 0,
-    reveal: state.reveal ?? null,
+    reveal: normalizeReveal(state.reveal),
   }
   if (base.phase === 'pick' || base.phase === 'done') {
     const turn = nextPickTurn(base)
@@ -455,24 +532,16 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
       const nextTeam = { ...s[side], bans }
       const provisional = { ...s, [side]: nextTeam } as DraftState
       const reveal: DraftReveal | null = heroId
-        ? {
-            id: `${Date.now()}-ban-${side}-${index}`,
-            kind: 'ban',
-            side,
-            slot: index,
-            heroId,
-            playerName: team.tag,
-            playerPhoto: team.logo || undefined,
-            teamTag: team.tag,
-            teamName: team.name,
-            startedAt: Date.now(),
-          }
+        ? makeReveal(
+            'ban',
+            [revealEntryFrom(nextTeam, side, index, heroId, 'ban')],
+            `ban-${side}-${index}`,
+          )
         : s.reveal?.kind === 'ban' &&
-            s.reveal.side === side &&
-            s.reveal.slot === index
+            s.reveal.entries.some((e) => e.side === side && e.slot === index)
           ? null
           : s.reveal
-      if (reveal?.id) revealId = reveal.id
+      if (reveal?.id && reveal.id !== s.reveal?.id) revealId = reveal.id
       const turn = heroId
         ? nextBanTurn(provisional)
         : {
@@ -505,30 +574,57 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
     set((s) => {
       const picks = [...s[side].picks]
       picks[index] = heroId
-      const team = s[side]
-      const player = team.players[index]
       const nextTeam = { ...s[side], picks }
       const provisional = { ...s, [side]: nextTeam } as DraftState
       const turn = nextPickTurn(provisional)
-      const reveal: DraftReveal | null = heroId
-        ? {
-            id: `${Date.now()}-pick-${side}-${index}`,
-            kind: 'pick',
-            side,
-            slot: index,
-            heroId,
-            playerName: player?.name ?? team.tag,
-            playerPhoto: player?.photo,
-            teamTag: team.tag,
-            teamName: team.name,
-            startedAt: Date.now(),
+
+      let reveal: DraftReveal | null = s.reveal
+      if (!heroId) {
+        reveal =
+          s.reveal?.kind === 'pick' &&
+          s.reveal.entries.some((e) => e.side === side && e.slot === index)
+            ? null
+            : s.reveal
+      } else {
+        const queue = buildPickQueue(s.firstPickSide ?? 'blue')
+        const target = queue.find((t) => t.side === side && t.slot === index)
+        if (!target) {
+          reveal = makeReveal(
+            'pick',
+            [revealEntryFrom(nextTeam, side, index, heroId, 'pick')],
+            `pick-${side}-${index}`,
+          )
+        } else {
+          const block = queue.filter((t) => t.blockIndex === target.blockIndex)
+          const pickAt = (t: (typeof block)[number]) =>
+            (t.side === side ? picks : s[t.side].picks)[t.slot]
+          const blockComplete = block.every((t) => !!pickAt(t))
+
+          // 2-pick blocks: wait until both heroes are selected before popup.
+          if (target.blockSize > 1 && !blockComplete) {
+            reveal = s.reveal
+          } else if (target.blockSize > 1 && blockComplete) {
+            const entries = block.map((t) => {
+              const hid = pickAt(t)!
+              const team = t.side === side ? nextTeam : s[t.side]
+              return revealEntryFrom(team, t.side, t.slot, hid, 'pick')
+            })
+            reveal = makeReveal(
+              'pick',
+              entries,
+              `pick-block-${target.blockIndex}`,
+            )
+          } else {
+            reveal = makeReveal(
+              'pick',
+              [revealEntryFrom(nextTeam, side, index, heroId, 'pick')],
+              `pick-${side}-${index}`,
+            )
           }
-        : s.reveal?.kind === 'pick' &&
-            s.reveal.side === side &&
-            s.reveal.slot === index
-          ? null
-          : s.reveal
-      if (reveal?.id) revealId = reveal.id
+        }
+      }
+
+      if (reveal?.id && reveal.id !== s.reveal?.id) revealId = reveal.id
 
       return {
         [side]: nextTeam,
