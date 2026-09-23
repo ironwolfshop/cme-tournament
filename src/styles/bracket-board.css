@@ -1,0 +1,673 @@
+/* CME Tournament board — adapted from CME-Tournament-Bracket.html */
+
+.bracket-board-root {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  color: #eff5fe;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+  background: transparent;
+}
+
+.bracket-board-root.is-preview {
+  background: radial-gradient(
+    ellipse at 50% 37%,
+    #1d3c58 0,
+    #13283e 30%,
+    #0b192d 64%,
+    #081322 100%
+  );
+}
+
+.bracket-board-root .bb-stage-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 37%,
+    #1d3c58 0,
+    #13283e 30%,
+    #0b192d 64%,
+    #081322 100%
+  );
+  pointer-events: none;
+}
+
+.bracket-board-root .bb-board-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(#94b5d106 1px, transparent 1px),
+    linear-gradient(90deg, #94b5d106 1px, transparent 1px);
+  background-size: 84px 84px;
+  mask-image: linear-gradient(180deg, transparent, #000b 30%, #0007 70%, transparent);
+  pointer-events: none;
+}
+
+.bracket-board-root .bb-board-border {
+  position: absolute;
+  inset: 27px;
+  border: 1px solid #8ab0d012;
+  border-radius: 15px;
+  pointer-events: none;
+}
+
+.bracket-board-root .bb-header {
+  position: absolute;
+  top: 64px;
+  left: 70px;
+  right: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  z-index: 3;
+}
+
+.bracket-board-root .bb-brand {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+
+.bracket-board-root .bb-emblem {
+  width: 62px;
+  height: 67px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 77%, 50% 100%, 0 77%);
+  background: #e8bf7210;
+  border: 1px solid #bc9f6066;
+  color: #e8bf72;
+}
+
+.bracket-board-root .bb-emblem svg {
+  width: 30px;
+  height: 30px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bracket-board-root .bb-eyebrow {
+  color: #96b5d5;
+  font-size: 12px;
+  letter-spacing: 0.26em;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+
+.bracket-board-root .bb-title {
+  font-size: 32px;
+  line-height: 1.15;
+  letter-spacing: 0.015em;
+  font-weight: 740;
+  text-transform: uppercase;
+  max-width: 1100px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bracket-board-root .bb-title-rule {
+  width: 70px;
+  height: 2px;
+  background: #e8bf72;
+  margin-top: 15px;
+}
+
+.bracket-board-root .bb-format-badge {
+  padding: 12px 19px;
+  border: 1px solid #7294bd3e;
+  border-radius: 8px;
+  background: #2131495e;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.bracket-board-root .bb-format-badge span {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.21em;
+  color: #a8c4e2;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.bracket-board-root .bb-format-badge strong {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 3px;
+  letter-spacing: -0.02em;
+}
+
+.bracket-board-root .bb-round-heading {
+  position: absolute;
+  top: 203px;
+  width: 288px;
+  text-align: center;
+  color: #a6bedb;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  align-items: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.bracket-board-root .bb-round-heading span {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.bracket-board-root .bb-round-heading small {
+  font-size: 11px;
+  color: #66809f;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+.bracket-board-root .bb-round-heading:after {
+  content: '';
+  width: 29px;
+  height: 1px;
+  background: #6e98c757;
+  margin-top: 3px;
+}
+
+.bracket-board-root .bb-round-heading.qf-left {
+  left: 70px;
+}
+.bracket-board-root .bb-round-heading.sf-left {
+  left: 434px;
+}
+.bracket-board-root .bb-round-heading.sf-right {
+  left: 1198px;
+}
+.bracket-board-root .bb-round-heading.qf-right {
+  left: 1562px;
+}
+
+.bracket-board-root .bb-lines {
+  position: absolute;
+  inset: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.bracket-board-root .bb-lines .connector {
+  fill: none;
+  stroke: #57799d88;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.bracket-board-root .bb-lines .connector.resolved {
+  stroke: #9aafc8;
+  stroke-width: 2.5;
+}
+
+.bracket-board-root .bb-lines .final-connector {
+  fill: none;
+  stroke: #b4975977;
+  stroke-width: 2;
+}
+
+.bracket-board-root .bb-lines .final-connector.resolved {
+  stroke: #e8bf72;
+  stroke-width: 2.5;
+}
+
+.bracket-board-root .bb-lines .junction {
+  fill: #214365;
+  stroke: #79a5d19c;
+  stroke-width: 1.3;
+}
+
+.bracket-board-root .bb-match {
+  position: absolute;
+  display: block;
+  width: 288px;
+  height: 166px;
+  padding: 0;
+  text-align: left;
+  border: 1px solid #527394;
+  border-radius: 9px;
+  background: linear-gradient(130deg, #152a41f7, #102036fa);
+  overflow: hidden;
+  box-shadow: 0 7px 21px #0003;
+  color: #eaf2fc;
+  z-index: 2;
+}
+
+.bracket-board-root .bb-match.waiting {
+  border-color: #4160809e;
+  background: linear-gradient(130deg, #14263be0, #0d1b2fe0);
+}
+
+.bracket-board-root .bb-match.complete {
+  border-color: #7c8d91;
+  background: linear-gradient(130deg, #182e43f7, #102237fa);
+}
+
+.bracket-board-root .bb-match.live {
+  border-color: #e8c37c;
+  box-shadow: 0 0 0 2px #e8bf7210, 0 10px 25px #0004;
+}
+
+.bracket-board-root .bb-match.qf1 {
+  left: 70px;
+  top: 270px;
+}
+.bracket-board-root .bb-match.qf2 {
+  left: 70px;
+  top: 666px;
+}
+.bracket-board-root .bb-match.qf3 {
+  left: 1562px;
+  top: 270px;
+}
+.bracket-board-root .bb-match.qf4 {
+  left: 1562px;
+  top: 666px;
+}
+.bracket-board-root .bb-match.sf1 {
+  left: 434px;
+  top: 468px;
+}
+.bracket-board-root .bb-match.sf2 {
+  left: 1198px;
+  top: 468px;
+}
+.bracket-board-root .bb-match.gf {
+  left: 806px;
+  top: 626px;
+  width: 308px;
+  height: 174px;
+  border-color: #ae945f;
+  background: linear-gradient(135deg, #263349ed, #141f32f5);
+  box-shadow: 0 10px 34px #0004;
+}
+
+.bracket-board-root .bb-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  height: 32px;
+  border-bottom: 1px solid #708aae22;
+  background: #0a17283b;
+}
+
+.bracket-board-root .bb-match.gf .bb-topline {
+  height: 36px;
+  background: #8d75470b;
+}
+
+.bracket-board-root .bb-match-number {
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  color: #9eb6d2;
+  font-weight: 650;
+}
+
+.bracket-board-root .bb-match-status {
+  font-size: 9px;
+  color: #a6bace;
+  font-weight: 550;
+  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bracket-board-root .bb-match-status.ready {
+  color: #9dcaff;
+}
+.bracket-board-root .bb-match-status.complete {
+  color: #c7d4b6;
+}
+.bracket-board-root .bb-match-status.waiting {
+  color: #7f94b1;
+}
+.bracket-board-root .bb-match-status.live {
+  color: #f4d48f;
+}
+
+.bracket-board-root .bb-team {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  height: 49px;
+  background: transparent;
+  position: relative;
+}
+
+.bracket-board-root .bb-match.gf .bb-team {
+  height: 50px;
+}
+
+.bracket-board-root .bb-team + .bb-team {
+  border-top: 1px solid #6a84a626;
+}
+
+.bracket-board-root .bb-team.winner {
+  background: linear-gradient(90deg, #7e76431c, #475d3227);
+}
+
+.bracket-board-root .bb-team.winner .bb-team-name {
+  color: #f4dcac;
+}
+
+.bracket-board-root .bb-team.winner .bb-badge {
+  background: #4a402b;
+  border-color: #c3a46176;
+  color: #f2d397;
+}
+
+.bracket-board-root .bb-team.winner .bb-score {
+  color: #f4d48f;
+}
+
+.bracket-board-root .bb-team.loser .bb-team-name,
+.bracket-board-root .bb-team.loser .bb-badge,
+.bracket-board-root .bb-team.loser .bb-score {
+  opacity: 0.55;
+}
+
+.bracket-board-root .bb-badge {
+  height: 30px;
+  width: 30px;
+  display: grid;
+  place-items: center;
+  background: #253d56;
+  border: 1px solid #648aad62;
+  color: #b4d4f2;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.bracket-board-root .bb-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bracket-board-root .bb-badge.empty {
+  border: 1px dashed #5069878c;
+  background: #16283bbf;
+  color: #58708f;
+}
+
+.bracket-board-root .bb-team-name {
+  font-size: 16px;
+  line-height: 1.25;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.bracket-board-root .bb-team-name.pending {
+  font-size: 13px;
+  color: #8299b5;
+  font-weight: 450;
+}
+
+.bracket-board-root .bb-seed {
+  font-size: 9px;
+  color: #778da8;
+  min-width: 16px;
+  text-align: right;
+  letter-spacing: 0.025em;
+}
+
+.bracket-board-root .bb-score {
+  font-size: 19px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 22px;
+  max-width: 32px;
+  text-align: right;
+  color: #9fb5d0;
+}
+
+.bracket-board-root .bb-score.unset {
+  font-size: 13px;
+  font-weight: 400;
+  color: #5c7898;
+}
+
+.bracket-board-root .bb-footer {
+  height: 34px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid #6f85a527;
+  background: #0b19272b;
+  font-size: 9px;
+  color: #6f8aac;
+  letter-spacing: 0.04em;
+}
+
+.bracket-board-root .bb-match.gf .bb-footer {
+  height: 35px;
+}
+
+.bracket-board-root .bb-match.complete .bb-footer {
+  color: #b6bfaa;
+}
+
+.bracket-board-root .bb-final-caption {
+  position: absolute;
+  left: 831px;
+  top: 588px;
+  width: 258px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #e4c88c;
+  background: #152b40;
+  padding: 5px 0;
+  border-radius: 4px;
+  z-index: 2;
+}
+
+.bracket-board-root .bb-champion {
+  position: absolute;
+  left: 806px;
+  top: 281px;
+  width: 308px;
+  height: 226px;
+  border: 1px solid #b59a5a8f;
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse at 50% 25%, #49503946, #26374a55 55%, #182b41de),
+    linear-gradient(140deg, #263b50eb, #152a40f5);
+  text-align: center;
+  box-shadow: 0 12px 38px #0003;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 20px;
+  z-index: 2;
+}
+
+.bracket-board-root .bb-champion:before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 1px solid #c5ab7022;
+  border-radius: 7px;
+  pointer-events: none;
+}
+
+.bracket-board-root .bb-champion.crowned {
+  border-color: #e6c074;
+  box-shadow: 0 0 45px #e8bf7212, 0 12px 38px #0003;
+  background:
+    radial-gradient(ellipse at 50% 25%, #8b75462b, #26394e55 65%),
+    #172b40;
+}
+
+.bracket-board-root .bb-champ-label {
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  font-weight: 750;
+  color: #e3c686;
+  position: relative;
+}
+
+.bracket-board-root .bb-champ-emblem {
+  width: 63px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  color: #c5b378;
+  margin: 15px 0 13px;
+  position: relative;
+}
+
+.bracket-board-root .bb-champ-emblem:before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #d6bd7310;
+  border: 1px solid #c6ae6d38;
+  clip-path: polygon(0 0, 100% 0, 100% 78%, 50% 100%, 0 78%);
+  z-index: 0;
+}
+
+.bracket-board-root .bb-champ-emblem svg,
+.bracket-board-root .bb-champ-emblem img {
+  width: 34px;
+  height: 34px;
+  position: relative;
+  z-index: 1;
+}
+
+.bracket-board-root .bb-champ-emblem img {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.bracket-board-root .bb-champ-emblem svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bracket-board-root .bb-champ-name {
+  font-size: 21px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: #cddaea;
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+
+.bracket-board-root .bb-champion.crowned .bb-champ-name {
+  color: #f7dfa7;
+  font-size: 24px;
+}
+
+.bracket-board-root .bb-champ-sub {
+  font-size: 10px;
+  color: #849cb8;
+  letter-spacing: 0.08em;
+  margin-top: 8px;
+  position: relative;
+}
+
+.bracket-board-root .bb-champion.crowned .bb-champ-sub {
+  color: #c4b380;
+}
+
+.bracket-board-root .bb-board-footer {
+  position: absolute;
+  left: 70px;
+  right: 70px;
+  bottom: 65px;
+  padding-top: 20px;
+  border-top: 1px solid #6685a22a;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  color: #6e8da9;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  z-index: 2;
+}
+
+.bracket-board-root .bb-board-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.bracket-board-root .bb-footer-line {
+  width: 24px;
+  height: 1px;
+  background: #c0a368;
+}
+
+.bracket-board-root .bb-board-footer b {
+  color: #b5c7dc;
+  font-weight: 550;
+}
+
+/* Flexible layout for non-8 bracket sizes */
+.bracket-board-root.is-flex .bb-flex-stage {
+  position: absolute;
+  inset: 170px 48px 90px;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  z-index: 2;
+}
+
+.bracket-board-root.is-flex .bb-match {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: 100%;
+  max-width: 288px;
+}
+
+.bracket-board-root.is-flex .bb-match.gf {
+  width: 100%;
+  max-width: 308px;
+}

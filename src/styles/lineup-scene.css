@@ -1,0 +1,422 @@
+/* Dual-team lineup roster — vertical portrait cards (OBS 1920×1080) */
+
+.lu-shell {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+}
+
+.lineup-scene.lu-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  transform-origin: 0 0;
+  font-family: 'Rajdhani', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+  color: #f4f6fa;
+  background: transparent;
+}
+
+.lineup-scene .lu-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 35%, #1c2436 0%, transparent 70%),
+    linear-gradient(180deg, #0d121c 0%, #080b12 55%, #05070c 100%);
+  pointer-events: none;
+}
+
+.lineup-scene .lu-bg-texture {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  background:
+    radial-gradient(circle at 18% 80%, rgba(104, 173, 255, 0.12), transparent 42%),
+    radial-gradient(circle at 82% 80%, rgba(255, 113, 138, 0.12), transparent 42%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.012) 2px,
+      rgba(255, 255, 255, 0.012) 3px
+    );
+  pointer-events: none;
+}
+
+.lineup-scene .lu-vignette {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 140px 50px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+/* —— Header —— */
+.lineup-scene .lu-top {
+  position: absolute;
+  top: 28px;
+  left: 48px;
+  right: 48px;
+  display: grid;
+  grid-template-columns: 160px 1fr 160px;
+  align-items: start;
+  z-index: 4;
+}
+
+.lineup-scene .lu-top-mark,
+.lineup-scene .lu-top-sponsor {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(232, 191, 114, 0.9);
+  padding-top: 10px;
+}
+
+.lineup-scene .lu-top-sponsor {
+  text-align: right;
+  color: rgba(168, 186, 214, 0.85);
+  letter-spacing: 0.18em;
+}
+
+.lineup-scene .lu-top-center {
+  text-align: center;
+}
+
+.lineup-scene .lu-game-pill {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  color: #ff6b6b;
+  margin-bottom: 8px;
+}
+
+.lineup-scene .lu-title {
+  margin: 0;
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #ffffff 10%, #b8c4d8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  line-height: 1.1;
+}
+
+.lineup-scene .lu-subtitle {
+  margin: 8px 0 0;
+  font-size: 16px;
+  letter-spacing: 0.36em;
+  text-transform: uppercase;
+  color: rgba(168, 186, 214, 0.75);
+  font-weight: 600;
+}
+
+/* —— Dual teams —— */
+.lineup-scene .lu-dual {
+  position: absolute;
+  left: 36px;
+  right: 36px;
+  top: 130px;
+  bottom: 56px;
+  display: grid;
+  grid-template-columns: 1fr 70px 1fr;
+  gap: 8px;
+  align-items: stretch;
+  z-index: 3;
+}
+
+.lineup-scene .lu-vs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lineup-scene .lu-vs span {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: rgba(232, 191, 114, 0.85);
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.lineup-scene .lu-team {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 18px;
+}
+
+.lineup-scene .lu-team-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 8px;
+}
+
+.lineup-scene .lu-team-red .lu-team-head {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.lineup-scene .lu-team-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: #101722;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-size: 16px;
+}
+
+.lineup-scene .lu-team-blue .lu-team-logo {
+  border-color: rgba(104, 173, 255, 0.7);
+  box-shadow: 0 0 20px rgba(104, 173, 255, 0.25);
+}
+
+.lineup-scene .lu-team-red .lu-team-logo {
+  border-color: rgba(255, 113, 138, 0.7);
+  box-shadow: 0 0 20px rgba(255, 113, 138, 0.25);
+}
+
+.lineup-scene .lu-team-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lineup-scene .lu-team-side {
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  font-weight: 700;
+  color: rgba(168, 186, 214, 0.8);
+}
+
+.lineup-scene .lu-team-blue .lu-team-side {
+  color: #68adff;
+}
+
+.lineup-scene .lu-team-red .lu-team-side {
+  color: #ff718a;
+}
+
+.lineup-scene .lu-team-name {
+  margin: 2px 0 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.05;
+}
+
+.lineup-scene .lu-team-tag {
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: rgba(200, 210, 230, 0.7);
+  font-weight: 650;
+}
+
+/* —— Vertical cards —— */
+.lineup-scene .lu-cards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  flex: 1;
+  align-content: center;
+  min-height: 0;
+  padding: 0 4px;
+}
+
+.lineup-scene .lu-vcard {
+  position: relative;
+  min-width: 0;
+  animation: lu-card-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.lineup-scene .lu-crown {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 18px;
+  color: #e8bf72;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  z-index: 2;
+  line-height: 1;
+}
+
+.lineup-scene .lu-vcard-frame {
+  height: 100%;
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid rgba(255, 255, 255, 0.88);
+  background: #0a0e16;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.lineup-scene .lu-vcard-blue .lu-vcard-frame {
+  border-color: rgba(180, 210, 255, 0.92);
+}
+
+.lineup-scene .lu-vcard-red .lu-vcard-frame {
+  border-color: rgba(255, 190, 200, 0.92);
+}
+
+.lineup-scene .lu-vcard.is-captain .lu-vcard-frame {
+  border-color: #e8bf72;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(232, 191, 114, 0.35);
+}
+
+.lineup-scene .lu-vcard-photo {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #121826;
+  overflow: hidden;
+}
+
+.lineup-scene .lu-vcard-photo img,
+.lineup-scene .lu-vcard-photo .cme-fill,
+.lineup-scene .lu-vcard-photo img,
+.lineup-scene .lu-vcard-photo > * {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.lineup-scene .lu-vcard-empty {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #1a2233, #0d121c);
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(168, 186, 214, 0.45);
+}
+
+.lineup-scene .lu-vcard-shade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 35%;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+}
+
+.lineup-scene .lu-vcard-role {
+  display: grid;
+  place-items: center;
+  height: 44px;
+  background: #0a0e16;
+  color: #f5f7fc;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.lineup-scene .lu-vcard-role svg {
+  width: 22px;
+  height: 22px;
+}
+
+.lineup-scene .lu-vcard-name {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  background: #ffffff;
+  color: #0a0e16;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.15;
+  overflow: hidden;
+}
+
+.lineup-scene .lu-team-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.lineup-scene .lu-team-foot-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #101722;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+}
+
+.lineup-scene .lu-team-foot-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lineup-scene .lu-team-blue .lu-team-foot-logo {
+  border-color: rgba(104, 173, 255, 0.55);
+}
+
+.lineup-scene .lu-team-red .lu-team-foot-logo {
+  border-color: rgba(255, 113, 138, 0.55);
+}
+
+.lineup-scene .lu-team-foot-name {
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(220, 228, 240, 0.85);
+}
+
+.lineup-scene .lu-footer {
+  position: absolute;
+  left: 48px;
+  right: 48px;
+  bottom: 16px;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(148, 161, 183, 0.7);
+  z-index: 4;
+}
+
+@keyframes lu-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

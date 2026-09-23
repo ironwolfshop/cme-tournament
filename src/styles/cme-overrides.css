@@ -1,0 +1,1197 @@
+.cme-draft,
+.cme-gc,
+.cme-br {
+  min-height: 100vh;
+  overflow: visible;
+  padding-bottom: 48px;
+}
+
+/* Control desks must scroll — overlays keep their own overflow:hidden */
+html:has(.cme-gc),
+html:has(.cme-draft),
+html:has(.cme-br),
+body:has(.cme-gc),
+body:has(.cme-draft),
+body:has(.cme-br),
+#root:has(.cme-gc),
+#root:has(.cme-draft),
+#root:has(.cme-br) {
+  height: auto !important;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto !important;
+}
+
+.cme-gc .workspace {
+  overflow: visible;
+  padding-bottom: 40px;
+}
+
+.cme-gc .capture-layout {
+  align-items: start;
+}
+
+.cme-gc .capture-layout > .surface {
+  overflow: visible;
+}
+
+.cme-gc .region-list .region-row {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+.cme-draft .nav a.nav-link,
+.cme-gc .nav a.nav-link,
+.cme-br .nav a.nav-link {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0 2px;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  font-size: 0.875rem;
+  color: var(--muted, #8c98ad);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cme-draft .nav a.nav-link:hover,
+.cme-gc .nav a.nav-link:hover,
+.cme-br .nav a.nav-link:hover {
+  color: var(--text, #f4f6fa);
+}
+
+.cme-draft .nav a.nav-link.active,
+.cme-draft .nav a.nav-link[aria-current='page'],
+.cme-gc .nav a.nav-link.active,
+.cme-gc .nav a.nav-link[aria-current='page'],
+.cme-br .nav a.nav-link.active,
+.cme-br .nav a.nav-link[aria-current='page'] {
+  color: var(--text, #f4f6fa);
+  border-bottom-color: var(--gold, #e8bf72);
+}
+
+/* Keep ControlNav readable with many tabs */
+.cme-draft .topbar .nav,
+.cme-gc .topbar .nav,
+.cme-br .topbar .nav {
+  flex-wrap: wrap;
+  row-gap: 6px;
+  column-gap: 14px;
+  margin-left: 18px;
+  margin-right: auto;
+  height: auto;
+  min-height: 100%;
+  align-items: center;
+  display: flex;
+}
+
+.cme-gc .nav a,
+.cme-br .nav a {
+  text-decoration: none;
+}
+
+.cme-draft .portrait,
+.cme-gc .portrait,
+.cme-gc .player-card .portrait,
+.cme-bo .hero-frame,
+.cme-go .portrait,
+.cme-bo .ban-slot,
+.cme-bo .team-logo,
+.cme-go .crest,
+.cme-br .team-badge,
+.cme-br .champion-emblem {
+  position: relative;
+}
+
+/* Lock-in burst when a hero lands in a pick / ban slot */
+.cme-bo .player-card.just-locked {
+  border-color: #e8bf72;
+  box-shadow:
+    0 0 0 1px #e8bf7288,
+    0 0 28px #e8bf7244;
+}
+
+.cme-bo .player-card.just-locked .hero-frame {
+  overflow: hidden;
+}
+
+.cme-bo .ban-slot.just-locked {
+  box-shadow:
+    0 0 0 1px #ff718a99,
+    0 0 18px #ff718a55;
+}
+
+.cme-bo .ban-slot .animate-ban-slam,
+.cme-bo .ban-slot .animate-ban-slam .cme-fill,
+.cme-bo .hero-frame .animate-lock-in,
+.cme-bo .hero-frame .animate-lock-in .cme-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cme-bo .hero-frame > .cme-fill {
+  position: absolute;
+  inset: 0;
+}
+
+.cme-bo .pick-check.pop {
+  animation: pick-check-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  border-color: #e8bf72;
+  color: #ffe3a9;
+  background: #1a1408cc;
+}
+
+.cme-go .crest.institution-crest {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: #0c1422;
+  border: 1px solid #4a5f7c88;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  box-shadow: 0 4px 12px #0006;
+}
+
+.cme-go .crest.institution-crest img {
+  width: 92%;
+  height: 92%;
+  object-fit: contain;
+  display: block;
+}
+
+.cme-go .series-total {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: #a8bdd8;
+}
+
+.cme-go .series-total strong {
+  color: var(--gold);
+  margin-right: 4px;
+}
+
+/* Ensure scoreboard team names stay readable on gameplay overlay */
+.cme-go .team-banner .team-name {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  color: #f5f7fc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.cme-go .team-banner .team-abbr {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: #a8bdd8;
+  margin-top: 2px;
+}
+
+.cme-go .team-economy .gold-total,
+.cme-go .roster .player-economy {
+  display: none !important;
+}
+
+/* ZSCMST · CME (center) · Commandant (right) — gameplay + broadcast seals */
+.institution-logos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  pointer-events: none;
+}
+
+.institution-logos .institution-seal {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #1a2436ee, #0a1018f5 70%);
+  border: 2px solid rgba(232, 191, 114, 0.45);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.institution-logos .institution-seal img {
+  display: block;
+  width: 86%;
+  height: 86%;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px #0006);
+  background: transparent;
+}
+
+.institution-logos .seal-center {
+  border-color: rgba(232, 191, 114, 0.85);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.6),
+    0 0 18px rgba(232, 191, 114, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.institution-logos .seal-right {
+  border-color: rgba(104, 173, 255, 0.55);
+}
+
+.institution-logos .seal-left {
+  border-color: rgba(180, 200, 230, 0.4);
+}
+
+/* Base sizes — CME (center) is always largest */
+.institution-logos.size-sm .seal-left,
+.institution-logos.size-sm .seal-right {
+  width: 44px;
+  height: 44px;
+}
+.institution-logos.size-sm .seal-center {
+  width: 58px;
+  height: 58px;
+}
+
+.institution-logos.size-md .seal-left,
+.institution-logos.size-md .seal-right {
+  width: 64px;
+  height: 64px;
+}
+.institution-logos.size-md .seal-center {
+  width: 84px;
+  height: 84px;
+}
+
+.institution-logos.size-lg .seal-left,
+.institution-logos.size-lg .seal-right {
+  width: 88px;
+  height: 88px;
+}
+.institution-logos.size-lg .seal-center {
+  width: 112px;
+  height: 112px;
+}
+
+/* Gameplay scoreboard — larger seals above clock */
+.cme-go .scoreboard-institutions {
+  margin-bottom: 4px;
+  gap: 12px;
+}
+
+.cme-go .scoreboard-institutions .seal-left,
+.cme-go .scoreboard-institutions .seal-right {
+  width: 46px;
+  height: 46px;
+}
+
+.cme-go .scoreboard-institutions .seal-center {
+  width: 64px;
+  height: 64px;
+}
+
+.cme-go .match-ribbon {
+  gap: 12px;
+}
+
+.cme-go .ribbon-institutions {
+  flex-shrink: 0;
+}
+
+.cme-go .ribbon-institutions .seal-left,
+.cme-go .ribbon-institutions .seal-right {
+  width: 36px;
+  height: 36px;
+}
+
+.cme-go .ribbon-institutions .seal-center {
+  width: 48px;
+  height: 48px;
+}
+
+/* Draft / broadcast center column — logos + label stacked at top */
+.cme-bo .broadcast-institutions {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  gap: 12px;
+  z-index: 1;
+}
+
+.cme-bo .broadcast-institutions .seal-left,
+.cme-bo .broadcast-institutions .seal-right {
+  width: 56px;
+  height: 56px;
+}
+
+.cme-bo .broadcast-institutions .seal-center {
+  width: 72px;
+  height: 72px;
+}
+
+/* Sit below institution seals (was top:4px and overlapped logos) */
+.cme-bo .tournament-label {
+  top: 82px;
+}
+
+
+
+.cme-br .flex-board {
+  position: absolute;
+  left: 40px;
+  right: 40px;
+  top: 200px;
+  bottom: 88px;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: auto;
+}
+
+.cme-br .flex-board .round-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.cme-br .flex-board .round-col h3 {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a6bedb;
+}
+
+.cme-br .flex-board .match-card,
+.cme-br .match-list .match-card {
+  position: relative;
+  left: auto;
+  top: auto;
+}
+
+.cme-br .flex-board .match-card {
+  width: 250px;
+  height: 150px;
+}
+
+/* —— Bottom overlay: wider square cams on top, slim carousel below —— */
+.cme-go .bottom-feed-bar {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  bottom: 10px;
+  z-index: 28;
+  pointer-events: none;
+  height: auto;
+  min-height: 0;
+}
+
+.cme-go .bottom-feed-glow {
+  display: none;
+}
+
+.cme-go .bottom-feed-frame {
+  position: relative;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.cme-go .bottom-feed-frame:before {
+  display: none;
+}
+
+.cme-go .bottom-feed-cams {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  width: 100%;
+}
+
+.cme-go .bottom-feed-panel {
+  --accent: var(--blue);
+  --panel-border: #4261818c;
+  width: 268px;
+  max-width: 268px;
+  min-width: 268px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  overflow: hidden;
+  background: linear-gradient(165deg, #152b46f0, #0d1522f5);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.cme-go .bottom-feed-panel.red {
+  --accent: var(--red);
+  --panel-border: #8652668c;
+  border-radius: 8px;
+  background: linear-gradient(195deg, #35202ff0, #14101af5);
+}
+
+.cme-go .bottom-feed-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(100, 120, 150, 0.28);
+  background: rgba(8, 14, 24, 0.72);
+  position: relative;
+}
+
+.cme-go .bottom-feed-head:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+.cme-go .bottom-feed-panel.red .bottom-feed-head {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.cme-go .bottom-feed-crest {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(232, 191, 114, 0.4);
+  background: #0a1018;
+  color: var(--gold);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.cme-go .bottom-feed-crest img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cme-go .bottom-feed-identity {
+  min-width: 0;
+  flex: 1;
+}
+
+.cme-go .bottom-feed-name {
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.cme-go .bottom-feed-meta {
+  margin-top: 1px;
+  font-size: 7px;
+  letter-spacing: 0.12em;
+  color: #9cc4ef;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cme-go .bottom-feed-panel.red .bottom-feed-meta {
+  color: #e5b2c0;
+}
+
+.cme-go .bottom-feed-slot {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  opacity: 0.9;
+}
+
+/* Slightly wider square video window */
+.cme-go .bottom-feed-window {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+  background: #070b12;
+  overflow: hidden;
+}
+
+.cme-go .bottom-feed-window video,
+.cme-go .bottom-feed-window .team-cam-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 28%;
+}
+
+.cme-go .bottom-feed-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 20px;
+  padding: 0 8px;
+  border-top: 1px solid rgba(100, 120, 150, 0.28);
+  background: linear-gradient(90deg, #17375a, #1b2c43);
+  color: #bdd5ee;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+}
+
+.cme-go .bottom-feed-panel.red .bottom-feed-foot {
+  flex-direction: row-reverse;
+  background: linear-gradient(90deg, #302237, #4f263a);
+  color: #e9bfce;
+}
+
+.cme-go .bottom-feed-player {
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #90a6c2;
+  letter-spacing: 0.06em;
+}
+
+.cme-go .bottom-feed-panel.red .bottom-feed-player {
+  color: #b28ea7;
+}
+
+/* Carousel under cams — no chrome / no background box */
+.cme-go .bottom-feed-center {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: auto;
+  min-height: 28px;
+  padding: 0 8px;
+  z-index: 1;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.cme-go .bottom-feed-center-inner {
+  display: contents;
+}
+
+.cme-go .bottom-feed-center-label {
+  text-align: center;
+  font-size: 7px;
+  font-weight: 750;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  text-transform: uppercase;
+  line-height: 1;
+  flex-shrink: 0;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
+}
+
+.cme-go .feed-bridge {
+  display: none;
+}
+
+.cme-go .inst-carousel {
+  position: relative;
+  width: min(720px, 100%);
+  height: 22px;
+  min-height: 22px;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.cme-go .inst-carousel-track {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: max-content;
+  height: 100%;
+  animation: inst-carousel-scroll 26s linear infinite;
+  will-change: transform;
+}
+
+.cme-go .inst-carousel-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 0 2px;
+}
+
+.cme-go .inst-carousel-seal {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(232, 191, 114, 0.45);
+  background: rgba(8, 12, 20, 0.75);
+  flex-shrink: 0;
+}
+
+.cme-go .inst-carousel-seal.seal-center {
+  width: 20px;
+  height: 20px;
+  border-color: rgba(232, 191, 114, 0.75);
+}
+
+.cme-go .inst-carousel-seal img {
+  width: 86%;
+  height: 86%;
+  object-fit: contain;
+}
+
+.cme-go .inst-carousel-name {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e8eef8;
+  white-space: nowrap;
+  max-width: 140px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes inst-carousel-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-33.333%);
+  }
+}
+
+.cme-go.hide-cameras .bottom-feed-panel {
+  visibility: hidden;
+  width: 0;
+  max-width: 0;
+  border: none;
+  overflow: hidden;
+}
+
+.cme-go.hide-cameras .bottom-feed-cams {
+  display: none;
+}
+
+.cme-go.hide-cameras .bottom-feed-frame {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.cme-go.hide-cameras .bottom-feed-bar {
+  height: auto;
+  min-height: 36px;
+}
+
+.cme-go.hide-cameras .bottom-feed-center {
+  grid-column: auto;
+  height: auto;
+}
+
+.cme-go.hide-cameras .feed-bridge {
+  display: none;
+}
+
+.cme-go .bottom-feed-panel.red .team-cam-waiting {
+  background: linear-gradient(220deg, #2b2034, #151725);
+}
+
+/* TeamCamFeed — works inside camera-window / featured frames */
+.team-cam-feed-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: none;
+}
+
+.team-cam-feed-video.is-live {
+  opacity: 1;
+}
+
+.team-cam-waiting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: linear-gradient(160deg, #172539, #0e1725);
+  color: #6e86a1;
+}
+
+.team-cam-waiting svg {
+  width: 16px;
+  height: 16px;
+  opacity: 0.45;
+}
+
+.team-cam-waiting-label {
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.team-cam-waiting-note {
+  font-size: 7px;
+  color: #586d88;
+}
+
+.cme-go .caster-feed {
+  position: absolute;
+  left: auto;
+  right: 36px;
+  top: auto;
+  bottom: 28px;
+  width: 420px;
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px) scale(0.98);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.cme-go .caster-feed.on {
+  opacity: 1 !important;
+  transform: translateY(0) scale(1);
+}
+
+.cme-go .caster-feed .camera-window {
+  height: 236px;
+}
+
+/* Player-cam hide must NOT kill the shoutcaster hole */
+.cme-go.hide-cameras .caster-feed {
+  display: block;
+}
+
+.cme-go.hide-cameras .caster-feed .cam-block {
+  display: block !important;
+}
+
+.cme-go.output-mode .caster-feed .cam-block {
+  border: 2px solid rgba(232, 191, 114, 0.55);
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.cme-go.output-mode .caster-feed .camera-window.caster-hole {
+  background: transparent !important;
+  border: 1px dashed rgba(232, 191, 114, 0.35);
+}
+
+.cme-go .caster-feed .camera-window.caster-feed-live {
+  position: relative;
+  overflow: hidden;
+  background: #070b12 !important;
+  border: 1px solid rgba(232, 191, 114, 0.45);
+}
+
+.cme-go .caster-feed .camera-window.caster-feed-live video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Keep the hole empty so OBS video behind the browser source shows through */
+.cme-go.output-mode .caster-feed .camera-window.caster-hole > * {
+  opacity: 0.35;
+}
+
+/* Tighter kill badges — less empty pad around the digit */
+.cme-go .team-kills {
+  min-width: 72px;
+  max-width: 88px;
+  padding: 6px 8px;
+}
+
+.cme-go .team-kills b {
+  font-size: 42px;
+}
+
+.cme-go.output-mode .caster-feed .cam-topline,
+.cme-go.output-mode .caster-feed .cam-footer {
+  visibility: visible;
+  background: rgba(10, 16, 28, 0.82);
+}
+
+/* Fit the whole gameplay graphic inside whatever size OBS gives the browser source. */
+.overlay-root.cme-go.output-mode {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.overlay-root.cme-go.output-mode .workspace,
+.overlay-root.cme-go.output-mode .stage-shell {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Keep the scoreboard inside the OBS source. Scale from the top-left so the
+   clock bar cannot sit above the frame. */
+.cme-go.output-mode .stage {
+  left: 0 !important;
+  top: 0 !important;
+  transform-origin: 0 0 !important;
+  transform: none;
+}
+
+.cme-go .map-frame {
+  position: absolute;
+  left: 50%;
+  top: 198px;
+  transform: translateX(-50%);
+  width: 210px;
+  height: 118px;
+  border: 1px dashed #425774;
+  border-radius: 7px;
+  background: #0d172780;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #7892b3;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  overflow: hidden;
+  z-index: 5;
+}
+
+.cme-go.output-mode .map-frame {
+  background: transparent;
+}
+
+.cme-go .map-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cme-go .event-call {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  z-index: 30;
+  min-width: 440px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  padding: 22px 36px 18px;
+  background: linear-gradient(160deg, #202637f5, #0c1320fa 65%);
+  border: 1px solid #7c715344;
+  border-top: 2px solid var(--gold);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px #0008;
+}
+
+.cme-go .event-call small {
+  display: block;
+  letter-spacing: 0.22em;
+  font-size: 12px;
+  font-weight: 750;
+  margin-bottom: 6px;
+}
+
+.cme-go .event-call b {
+  display: block;
+  font-size: 40px;
+  letter-spacing: 0.04em;
+  font-weight: 750;
+  line-height: 1.05;
+}
+
+.cme-go .event-call span {
+  display: block;
+  margin-top: 8px;
+  color: #b7c6dc;
+  letter-spacing: 0.14em;
+  font-size: 13px;
+}
+
+.cme-gc .item-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.cme-gc .item-picker button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  border: 1px solid #34455f;
+  background: #0d1726;
+  color: #d5e0ee;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 13px;
+}
+
+.cme-gc .swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.cme-bo.output-mode,
+.cme-go.output-mode,
+.overlay-root.cme-br.presentation-mode {
+  background: transparent;
+}
+
+.overlay-root.cme-br {
+  min-height: 0;
+}
+
+.overlay-root.cme-br.presentation-mode .workspace {
+  width: 1920px;
+  height: 1080px;
+}
+
+.cme-draft .toast.visible,
+.cme-gc .toast.visible,
+.cme-br .toast.visible,
+.cme-bo .toast.visible {
+  display: block;
+}
+
+/* Centered bracket match modal — pick winner (no score entry) */
+.cme-br dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  max-height: min(90vh, 720px);
+  width: min(560px, calc(100vw - 32px));
+  border: 1px solid #2b3444;
+  border-radius: 14px;
+  background: #121824;
+  color: #f5f7fc;
+  padding: 0;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
+  overflow: auto;
+}
+
+.cme-br dialog::backdrop {
+  background: rgba(4, 8, 16, 0.72);
+}
+
+.cme-br dialog.cme-br-match-dialog {
+  width: min(640px, calc(100vw - 32px));
+}
+
+.cme-br .winner-pick-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: stretch;
+  margin-top: 8px;
+}
+
+.cme-br .winner-pick-vs {
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: #e8bf72;
+}
+
+.cme-br .winner-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 14px;
+  border-radius: 12px;
+  border: 1px solid #2b3444;
+  background: #0d1420;
+  color: inherit;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.cme-br .winner-pick:hover {
+  transform: translateY(-1px);
+}
+
+.cme-br .winner-pick.blue:hover,
+.cme-br .winner-pick.blue.is-winner {
+  border-color: #68adff;
+  background: #132033;
+}
+
+.cme-br .winner-pick.red:hover,
+.cme-br .winner-pick.red.is-winner {
+  border-color: #ff718a;
+  background: #24141c;
+}
+
+.cme-br .winner-pick.is-winner {
+  box-shadow: inset 0 0 0 1px rgba(232, 191, 114, 0.45);
+}
+
+.cme-br .winner-pick-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 16px;
+  background: #1a2436;
+  border: 2px solid rgba(232, 191, 114, 0.35);
+  overflow: hidden;
+}
+
+.cme-br .winner-pick-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cme-br .winner-pick-name {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.cme-br .winner-pick-meta {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #94a1b7;
+  text-transform: uppercase;
+}
+
+/* Opening-round drag swap */
+.cme-br .match-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.cme-br .match-card-hit {
+  display: flex;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+}
+
+.cme-br .match-footer.match-card-hit {
+  align-items: center;
+  gap: 6px;
+}
+
+.cme-br .match-team.draggable {
+  cursor: grab;
+  user-select: none;
+}
+
+.cme-br .match-team.draggable:active {
+  cursor: grabbing;
+}
+
+.cme-br .match-team.dragging {
+  opacity: 0.45;
+}
+
+.cme-br .match-team.drop-target {
+  outline: 1px solid var(--gold);
+  background: rgba(232, 191, 114, 0.12);
+}
+
+.cme-br .match-card.placeable .match-team.draggable:hover {
+  background: rgba(104, 173, 255, 0.08);
+}
+
+/* Completed QF + SF/Final: no grab cursor, look locked */
+.cme-br .match-card.complete .match-team,
+.cme-br .match-card.waiting .match-team {
+  cursor: default;
+  pointer-events: auto;
+}
+
+@media (max-width: 640px) {
+  .cme-br .winner-pick-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cme-br .winner-pick-vs {
+    padding: 4px 0;
+  }
+}

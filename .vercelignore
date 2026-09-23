@@ -1,0 +1,9 @@
+node_modules
+dist
+.vercel
+_design_extract
+_recovered_from_transcript
+draft_hero_ocr
+*.log
+.env*
+.DS_Store
