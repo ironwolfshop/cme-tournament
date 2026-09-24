@@ -641,7 +641,7 @@ export function initDraftSync() {
   syncStarted = true
 
   // Only control desks author draft changes; overlays (OBS) just mirror the hub.
-  const isController = window.location.pathname.startsWith('/control')
+  const isController = window.location.pathname.startsWith('/control/')
   let hubSeen = false
   const localStamp = () => useDraftStore.getState().updatedAt ?? 0
 

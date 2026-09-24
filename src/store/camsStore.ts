@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { loadJson, loadJsonSync, saveJsonFire } from '../lib/appStorage'
+import { isControlDeskPath } from '../lib/controlPath'
 import { fetchSync, pushSync, subscribeSync } from '../lib/obsSync'
 
 export type CamsState = {
@@ -135,10 +136,7 @@ export function initCamsSync() {
       useCamsStore.getState().hydrate(payload as CamsState)
     }
   })
-  if (
-    typeof window !== 'undefined' &&
-    window.location.pathname.includes('/control')
-  ) {
+  if (typeof window !== 'undefined' && isControlDeskPath()) {
     window.setTimeout(() => {
       pushSync('cams', snapshot(useCamsStore.getState()))
     }, 50)

@@ -27,7 +27,7 @@ const SCENES: Scene[] = [
     name: 'Draft / Ban-Pick',
     blurb: 'Bottom dock with bans, picks, and reveal popup.',
     overlayPath: '/overlay',
-    controlPath: '/control',
+    controlPath: '/control/draft',
     size: '1920 × 1080',
   },
   {
@@ -101,7 +101,7 @@ const SCENES: Scene[] = [
     name: 'Stinger / Transition',
     blurb: 'Full-screen wipe transition. Fire from draft or broadcast.',
     overlayPath: '/overlay/stinger',
-    controlPath: '/control',
+    controlPath: '/control/draft',
     size: '1920 × 1080',
   },
   {

@@ -22,8 +22,8 @@ export default function CamsControlPage() {
       ? `https://${origins.lanIps[0]}:${PHONE_PORT}`
       : null
   const joinUrl = phoneLan
-    ? `${phoneLan}/cam`
-    : `https://YOUR-LAN-IP:${PHONE_PORT}/cam`
+    ? `${phoneLan}/control`
+    : `https://YOUR-LAN-IP:${PHONE_PORT}/control`
 
   function copy(text: string) {
     void navigator.clipboard.writeText(text).catch(() => undefined)
@@ -157,21 +157,38 @@ export default function CamsControlPage() {
         </section>
 
         <section className="rounded-xl border border-teal-500/30 bg-teal-950/30 p-4">
-          <div className="text-sm font-bold text-teal-100">Phone join (HTTPS)</div>
-          <code className="mt-2 block break-all rounded bg-black/40 px-2 py-2 text-xs text-teal-200">
+          <div className="text-sm font-bold text-teal-100">
+            Send to players (phone cam)
+          </div>
+          <code className="mt-2 block break-all rounded bg-black/40 px-2 py-3 text-sm text-teal-200">
             {joinUrl}
           </code>
           <button
             type="button"
             onClick={() => copy(joinUrl)}
-            className="mt-3 w-full rounded-lg bg-teal-600 py-3 font-bold hover:bg-teal-500"
+            className="mt-3 w-full rounded-lg bg-teal-600 py-3.5 text-lg font-bold hover:bg-teal-500"
           >
-            Copy phone link
+            Copy player link
           </button>
           <p className="mt-2 text-xs text-slate-400">
-            On iPhone: accept the certificate warning, then enter code{' '}
+            Same Wi‑Fi. Accept the certificate warning, then enter code{' '}
             <b className="text-white">{store.accessCode}</b>
           </p>
+          <div className="mt-3 border-t border-white/10 pt-3">
+            <div className="text-[10px] uppercase tracking-wider text-slate-500">
+              Localhost join (this PC)
+            </div>
+            <code className="mt-1 block break-all text-xs text-sky-300">
+              {absoluteUrl(origins.local, '/control')}
+            </code>
+            <button
+              type="button"
+              onClick={() => copy(absoluteUrl(origins.local, '/control'))}
+              className="mt-2 rounded bg-slate-700 px-3 py-1.5 text-xs font-bold hover:bg-slate-600"
+            >
+              Copy localhost
+            </button>
+          </div>
         </section>
 
         <section className="rounded-xl border border-white/10 bg-white/5 p-4">

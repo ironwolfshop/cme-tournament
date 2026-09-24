@@ -16,7 +16,7 @@ const NAV_GROUPS = [
   {
     label: 'MATCH DAY',
     items: [
-      { to: '/control', label: 'Draft room', icon: 'swords', end: true },
+      { to: '/control/draft', label: 'Draft room', icon: 'swords', end: true },
       { to: '/control/game', label: 'Gameplay desk', icon: 'sliders' },
       { to: '/control/bracket', label: 'Bracket', icon: 'bracket' },
       { to: '/control/lineup', label: 'Team reveal', icon: 'photo' },

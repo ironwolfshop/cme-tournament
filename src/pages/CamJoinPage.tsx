@@ -120,7 +120,7 @@ export default function CamJoinPage() {
           <div className="text-[11px] font-bold tracking-[0.35em] text-teal-300">
             CME ML TOURNAMENT
           </div>
-          <h1 className="mt-1 font-display text-2xl font-bold">Cam publisher</h1>
+          <h1 className="mt-1 font-display text-2xl font-bold">Join with code</h1>
           <p className="mt-1 text-sm text-slate-400">{store.matchName}</p>
         </div>
 

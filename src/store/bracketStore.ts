@@ -14,6 +14,7 @@ import {
   type BracketTeam,
 } from '../lib/bracketEngine'
 import { loadJson, loadJsonSync, saveJsonFire } from '../lib/appStorage'
+import { isControlDeskPath } from '../lib/controlPath'
 import { fetchSync, pushSync, subscribeSync } from '../lib/obsSync'
 import { useDraftStore } from './draftStore'
 
@@ -292,7 +293,7 @@ export function initBracketSync() {
       useBracketStore.getState().hydrate(payload)
       return
     }
-    if (!hubSeen && window.location.pathname.startsWith('/control')) {
+    if (!hubSeen && isControlDeskPath()) {
       pushSync('bracket', snapshot(useBracketStore.getState()))
     }
   })

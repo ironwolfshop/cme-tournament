@@ -77,9 +77,11 @@ export default function App() {
       <Route path="/overlay/cam/:side" element={<CamOverlayPage />} />
       <Route
         path="/overlay/cam/:side/:index"
-        element={<Navigate to="/cam" replace />}
+        element={<Navigate to="/control" replace />}
       />
-      <Route path="/control" element={<ControlPage />} />
+      {/* Public player join — code entry only (not the operator desk) */}
+      <Route path="/control" element={<CamJoinPage />} />
+      <Route path="/control/draft" element={<ControlPage />} />
       <Route path="/control/tournament" element={<TournamentControlPage />} />
       <Route path="/control/live" element={<LiveDeskPage />} />
       <Route path="/control/scenes" element={<ScenesControlPage />} />
@@ -109,8 +111,9 @@ export default function App() {
         path="/controls/*"
         element={<Navigate to="/control/tournament" replace />}
       />
-      <Route path="/cam" element={<CamJoinPage />} />
-      <Route path="/cam/stand/*" element={<Navigate to="/cam" replace />} />
+      <Route path="/cam" element={<Navigate to="/control" replace />} />
+      <Route path="/cam/stand/*" element={<Navigate to="/control" replace />} />
+      <Route path="/share" element={<Navigate to="/control" replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )

@@ -7,6 +7,7 @@ import {
 } from '../lib/bracketEngine'
 import { fetchSync, pushSync, subscribeSync } from '../lib/obsSync'
 import { loadJson, loadJsonSync, saveJsonFire } from '../lib/appStorage'
+import { isControlDeskPath } from '../lib/controlPath'
 import { useBracketStore } from './bracketStore'
 import { useDraftStore } from './draftStore'
 import { formatSeriesLabel, useGameplayStore } from './gameplayStore'
@@ -1145,10 +1146,7 @@ export function initTournamentSync() {
       }
     }
 
-    if (
-      typeof window !== 'undefined' &&
-      window.location.pathname.includes('/control')
-    ) {
+    if (typeof window !== 'undefined' && isControlDeskPath()) {
       const local = snapshot(useTournamentStore.getState())
       const hubNamed = realNamedCount(
         remote as Partial<TournamentState> | LegacyTournamentState | null,

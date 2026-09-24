@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { loadJson, loadJsonSync, saveJsonFire } from '../lib/appStorage'
+import { isControlDeskPath } from '../lib/controlPath'
 import { fetchSync, pushSync, subscribeSync } from '../lib/obsSync'
 import { useDraftStore, type TeamSide } from './draftStore'
 
@@ -870,10 +871,7 @@ export function initLineupSync() {
     if (remote && typeof remote === 'object') {
       useLineupStore.getState().hydrate(remote as LineupState)
     }
-    if (
-      typeof window !== 'undefined' &&
-      window.location.pathname.includes('/control')
-    ) {
+    if (typeof window !== 'undefined' && isControlDeskPath()) {
       pushSync('lineup', snapshot(useLineupStore.getState()))
     }
   })()

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { loadJson, loadJsonSync, saveJsonFire } from '../lib/appStorage'
+import { isControlDeskPath } from '../lib/controlPath'
 import { fetchSync, pushSync, subscribeSync } from '../lib/obsSync'
 
 export type CasterPerson = {
@@ -126,10 +127,7 @@ export function initCasterSync() {
   subscribeSync('casters', applyRemote)
   void fetchSync('casters').then(applyRemote)
 
-  if (
-    typeof window !== 'undefined' &&
-    window.location.pathname.includes('/control')
-  ) {
+  if (typeof window !== 'undefined' && isControlDeskPath()) {
     window.setTimeout(() => {
       pushSync('casters', snapshot(useCasterStore.getState()))
     }, 50)

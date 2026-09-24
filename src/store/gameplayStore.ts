@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { loadJson, loadJsonSync, saveJsonFire } from '../lib/appStorage'
+import { isControlDeskPath } from '../lib/controlPath'
 import { fetchSync, pushSync, subscribeSync } from '../lib/obsSync'
 
 export type TeamSide = 'blue' | 'red'
@@ -796,10 +797,7 @@ export function initGameplaySync() {
     applyRemote(payload)
   })
 
-  if (
-    typeof window !== 'undefined' &&
-    window.location.pathname.includes('/control')
-  ) {
+  if (typeof window !== 'undefined' && isControlDeskPath()) {
     window.setTimeout(() => {
       pushSync('gameplay', snapshot(useGameplayStore.getState()))
     }, 50)
