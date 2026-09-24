@@ -1,0 +1,1641 @@
+/* CME draft pick stage — /overlay. Every selector is scoped to .pk-root so it
+   outranks the generic .cme-bo rules injected later in the cascade. */
+
+.pk-root {
+  --gold: #f6c453;
+  --gold-hi: #ffe6a3;
+  --ink: #1b2a48;
+  --chamfer: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  font-family: 'Rajdhani', 'Exo 2', 'Segoe UI', sans-serif;
+  line-height: 1.1;
+  color: #f4f7fc;
+}
+
+/* Pushes the whole draft graphic to the bottom of the 1080 frame. */
+.pk-root .pk-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 244px;
+  height: 836px;
+}
+
+.pk-root .pk-scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 440px;
+  background: linear-gradient(0deg, rgba(3, 8, 22, 0.6), rgba(3, 8, 22, 0.25) 55%, transparent);
+  pointer-events: none;
+  animation: pkFadeIn 0.8s both;
+}
+
+.pk-root .side-blue {
+  --c: #2f7bff;
+  --c-hi: #7cbaff;
+  --c-deep: #06184a;
+  --c-rgb: 47, 123, 255;
+}
+
+.pk-root .side-red {
+  --c: #ff2d4a;
+  --c-hi: #ff8a99;
+  --c-deep: #4c0714;
+  --c-rgb: 255, 45, 74;
+}
+
+.overlay-root .pk-root svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ───────────────────────── Backdrop ───────────────────────── */
+
+.pk-root .pk-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pk-root .pk-bg > * {
+  position: absolute;
+}
+
+.pk-root .pk-bg-base {
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 55% at 50% 30%, rgba(255, 255, 255, 0.85), transparent 70%),
+    linear-gradient(180deg, transparent 55%, rgba(8, 14, 34, 0.55) 100%),
+    linear-gradient(
+      90deg,
+      #041240 0%,
+      #0c38b0 13%,
+      #3f7fe0 24%,
+      #b8d0f3 36%,
+      #eef3fb 45%,
+      #f8f9fc 50%,
+      #f8eef0 55%,
+      #f1b3bc 64%,
+      #d9344d 76%,
+      #8f0b20 88%,
+      #3a040c 100%
+    );
+}
+
+.pk-root .pk-bg-glow {
+  width: 900px;
+  height: 900px;
+  top: 50px;
+  border-radius: 50%;
+  filter: blur(40px);
+  animation: pkBreath 7s ease-in-out infinite;
+}
+
+.pk-root .pk-bg-glow.left {
+  left: -420px;
+  background: radial-gradient(circle, rgba(70, 150, 255, 0.85), rgba(20, 70, 220, 0.3) 45%, transparent 70%);
+}
+
+.pk-root .pk-bg-glow.right {
+  right: -420px;
+  background: radial-gradient(circle, rgba(255, 70, 95, 0.85), rgba(200, 10, 40, 0.3) 45%, transparent 70%);
+  animation-delay: -3.5s;
+}
+
+.pk-root .pk-bg-glow.center {
+  left: 50%;
+  top: -120px;
+  width: 760px;
+  height: 640px;
+  margin-left: -380px;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.9), transparent 65%);
+  animation-duration: 5s;
+}
+
+.pk-root .pk-dots {
+  top: 0;
+  width: 360px;
+  height: 300px;
+  background-image: radial-gradient(circle, rgba(40, 60, 110, 0.4) 1.6px, transparent 2.2px);
+  background-size: 14px 14px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 20%, #000 20%, transparent 70%);
+  mask-image: radial-gradient(ellipse at 50% 20%, #000 20%, transparent 70%);
+  animation: pkDots 6s ease-in-out infinite;
+}
+
+.pk-root .pk-dots.left {
+  left: 520px;
+}
+
+.pk-root .pk-dots.right {
+  right: 520px;
+  animation-delay: -3s;
+}
+
+.pk-root .pk-wheel {
+  left: 50%;
+  top: 20px;
+  width: 560px;
+  height: 560px;
+  margin-left: -280px;
+  color: rgba(28, 48, 92, 0.075);
+  animation: pkSpin 120s linear infinite;
+}
+
+.pk-root .pk-wheel svg {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 0;
+}
+
+.pk-root .pk-wheel .hub {
+  fill: rgba(255, 255, 255, 0.5);
+}
+
+.pk-root .pk-ship {
+  top: 40px;
+  width: 340px;
+  height: 300px;
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  animation: pkBob 9s ease-in-out infinite;
+}
+
+.pk-root .pk-ship svg {
+  fill: currentColor;
+  stroke: none;
+}
+
+.pk-root .pk-ship .win {
+  fill: rgba(255, 255, 255, 0.25);
+}
+
+.pk-root .pk-ship.left {
+  left: 20px;
+  color: rgba(4, 22, 80, 0.45);
+}
+
+.pk-root .pk-ship.right {
+  right: 20px;
+  color: rgba(80, 4, 18, 0.45);
+  transform: scaleX(-1);
+  animation-delay: -4.5s;
+}
+
+.pk-root .pk-beam {
+  top: -200px;
+  width: 4px;
+  height: 1500px;
+  border-radius: 4px;
+  overflow: hidden;
+  animation: pkBeamPulse 4s ease-in-out infinite;
+}
+
+.pk-root .pk-beam::after {
+  content: '';
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  height: 220px;
+  top: -240px;
+  background: linear-gradient(180deg, transparent, #fff, transparent);
+  animation: pkBeamRun 3.6s linear infinite;
+}
+
+.pk-root .pk-beam.left {
+  background: linear-gradient(180deg, transparent, #4b98ff 25%, #9fd0ff 50%, #4b98ff 75%, transparent);
+  box-shadow: 0 0 18px 4px rgba(60, 140, 255, 0.8), 0 0 60px 10px rgba(40, 110, 255, 0.35);
+}
+
+.pk-root .pk-beam.right {
+  background: linear-gradient(180deg, transparent, #ff3d57 25%, #ffb0ba 50%, #ff3d57 75%, transparent);
+  box-shadow: 0 0 18px 4px rgba(255, 50, 80, 0.8), 0 0 60px 10px rgba(255, 30, 60, 0.35);
+}
+
+.pk-root .pk-beam.left.b1 { left: 300px; transform: rotate(24deg); }
+.pk-root .pk-beam.left.b2 { left: 170px; width: 2px; transform: rotate(21deg); animation-delay: -1.3s; }
+.pk-root .pk-beam.left.b3 { left: 560px; top: 150px; width: 2px; height: 1100px; opacity: 0.6; transform: rotate(-38deg); animation-delay: -2.4s; }
+.pk-root .pk-beam.right.b1 { right: 300px; transform: rotate(-24deg); animation-delay: -2s; }
+.pk-root .pk-beam.right.b2 { right: 170px; width: 2px; transform: rotate(-21deg); animation-delay: -0.7s; }
+.pk-root .pk-beam.right.b3 { right: 560px; top: 150px; width: 2px; height: 1100px; opacity: 0.6; transform: rotate(38deg); animation-delay: -3.1s; }
+
+.pk-root .pk-beam.b2::after { animation-delay: -1.2s; animation-duration: 4.4s; }
+.pk-root .pk-beam.b3::after { animation-delay: -2.2s; animation-duration: 5s; }
+
+.pk-root .pk-sweep {
+  top: -200px;
+  left: 0;
+  width: 420px;
+  height: 1500px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  transform: rotate(18deg) translateX(-900px);
+  mix-blend-mode: screen;
+  animation: pkSweep 9s ease-in-out infinite;
+}
+
+.pk-root .pk-floor {
+  left: -10%;
+  right: -10%;
+  bottom: -40px;
+  height: 330px;
+  background:
+    linear-gradient(0deg, rgba(4, 10, 28, 0.9), rgba(10, 20, 50, 0.35) 60%, transparent),
+    linear-gradient(90deg, rgba(30, 90, 255, 0.35), transparent 35%, transparent 65%, rgba(255, 30, 60, 0.35));
+  overflow: hidden;
+}
+
+.pk-root .pk-floor::before {
+  content: '';
+  position: absolute;
+  inset: -200px 0 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(160, 200, 255, 0.22) 0 2px, transparent 2px 120px),
+    repeating-linear-gradient(0deg, rgba(160, 200, 255, 0.18) 0 2px, transparent 2px 60px);
+  transform: perspective(380px) rotateX(62deg);
+  transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(0deg, #000 30%, transparent 85%);
+  mask-image: linear-gradient(0deg, #000 30%, transparent 85%);
+  animation: pkFloor 4s linear infinite;
+}
+
+.pk-root .pk-floor::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 60px;
+  width: 1200px;
+  height: 3px;
+  margin-left: -600px;
+  background: linear-gradient(90deg, transparent, #7cbaff 20%, #fff 50%, #ff8a99 80%, transparent);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.7);
+  animation: pkBreath 4s ease-in-out infinite;
+}
+
+.pk-root .pk-smoke {
+  left: 0;
+  width: 200%;
+  background-repeat: repeat-x;
+  background-size: 50% 100%;
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+.pk-root .pk-smoke.s1 {
+  bottom: -60px;
+  height: 340px;
+  opacity: 0.85;
+  background-image:
+    radial-gradient(ellipse 22% 45% at 12% 70%, rgba(255, 255, 255, 0.75), transparent 70%),
+    radial-gradient(ellipse 18% 38% at 38% 80%, rgba(230, 240, 255, 0.7), transparent 70%),
+    radial-gradient(ellipse 25% 50% at 66% 72%, rgba(255, 255, 255, 0.7), transparent 70%),
+    radial-gradient(ellipse 20% 40% at 90% 78%, rgba(240, 244, 255, 0.7), transparent 70%);
+  animation: pkDrift 48s linear infinite;
+}
+
+.pk-root .pk-smoke.s2 {
+  bottom: 20px;
+  height: 300px;
+  opacity: 0.55;
+  background-image:
+    radial-gradient(ellipse 26% 40% at 20% 60%, rgba(200, 220, 255, 0.7), transparent 70%),
+    radial-gradient(ellipse 22% 36% at 55% 70%, rgba(255, 220, 228, 0.7), transparent 70%),
+    radial-gradient(ellipse 24% 44% at 82% 58%, rgba(255, 255, 255, 0.6), transparent 70%);
+  animation: pkDrift 70s linear infinite reverse;
+}
+
+.pk-root .pk-smoke.s3 {
+  bottom: 120px;
+  height: 260px;
+  opacity: 0.3;
+  background-image:
+    radial-gradient(ellipse 30% 35% at 30% 60%, rgba(255, 255, 255, 0.6), transparent 70%),
+    radial-gradient(ellipse 28% 30% at 75% 50%, rgba(255, 255, 255, 0.55), transparent 70%);
+  animation: pkDrift 95s linear infinite;
+}
+
+.pk-root .pk-particles {
+  inset: 0;
+}
+
+.pk-root .pk-particles i {
+  position: absolute;
+  bottom: -20px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: pkRise linear infinite;
+}
+
+.pk-root .pk-particles i.blue { background: #9fd0ff; box-shadow: 0 0 8px 2px rgba(80, 160, 255, 0.9); }
+.pk-root .pk-particles i.red { background: #ffb0ba; box-shadow: 0 0 8px 2px rgba(255, 60, 90, 0.9); }
+.pk-root .pk-particles i.white { background: #fff; box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.9); }
+
+/* ───────────────────────── Crest (logos + title) ───────────────────────── */
+
+.pk-root .pk-crest {
+  position: absolute;
+  left: 50%;
+  top: 262px;
+  width: 560px;
+  margin-left: -280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: pkFadeDown 0.9s 0.1s both;
+}
+
+.pk-root .pk-logos {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  height: 140px;
+}
+
+.pk-root .pk-seal {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  animation: pkFloat 5s ease-in-out infinite;
+}
+
+.pk-root .pk-seal.center {
+  width: 132px;
+  height: 132px;
+  animation-delay: -1.6s;
+}
+
+.pk-root .pk-seal.right {
+  animation-delay: -3.2s;
+}
+
+.pk-root .pk-seal::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent, rgba(246, 196, 83, 0.9), transparent 35%, transparent 55%, rgba(124, 186, 255, 0.9), transparent 85%);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 64%, #000 68%, transparent 70%);
+  mask: radial-gradient(circle, transparent 62%, #000 64%, #000 68%, transparent 70%);
+  animation: pkSpin 6s linear infinite;
+}
+
+.pk-root .pk-seal.center::before {
+  background: conic-gradient(from 0deg, transparent, #ffe6a3, transparent 30%, transparent 50%, #f6c453, transparent 80%);
+  animation-duration: 4s;
+}
+
+.pk-root .pk-seal img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 14px rgba(10, 30, 80, 0.35));
+}
+
+.pk-root .pk-seal.center img {
+  filter: drop-shadow(0 0 18px rgba(246, 196, 83, 0.55)) drop-shadow(0 8px 16px rgba(10, 30, 80, 0.35));
+}
+
+.pk-root .pk-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.42em;
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+}
+
+.pk-root .pk-title i {
+  display: block;
+  width: 70px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--ink));
+}
+
+.pk-root .pk-title i:last-child {
+  background: linear-gradient(90deg, var(--ink), transparent);
+}
+
+.pk-root .pk-title-anchor {
+  width: 24px;
+  height: 24px;
+  margin-top: 6px;
+  color: var(--ink);
+  opacity: 0.8;
+  animation: pkBob 4s ease-in-out infinite;
+}
+
+.pk-root.no-bg .pk-title,
+.pk-root.no-bg .pk-title-anchor {
+  color: #f4f7fc;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.pk-root.no-bg .pk-title i { background: linear-gradient(90deg, transparent, #f4f7fc); }
+.pk-root.no-bg .pk-title i:last-child { background: linear-gradient(90deg, #f4f7fc, transparent); }
+
+/* ───────────────────────── Bans ───────────────────────── */
+
+.pk-root .pk-bans {
+  position: absolute;
+  top: 344px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 76px;
+  padding: 0 10px 0 12px;
+  background: linear-gradient(180deg, rgba(8, 18, 44, 0.88), rgba(4, 10, 26, 0.92));
+  box-shadow: inset 0 0 0 1.5px rgba(var(--c-rgb), 0.55);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+}
+
+.pk-root .pk-bans.side-blue {
+  left: 58px;
+  animation: pkSlideL 0.8s 0.2s both;
+}
+
+.pk-root .pk-bans.side-red {
+  right: 58px;
+  flex-direction: row-reverse;
+  padding: 0 12px 0 10px;
+  animation: pkSlideR 0.8s 0.2s both;
+}
+
+.pk-root .pk-bans-label {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.2em;
+  color: #fff;
+  padding: 0 4px;
+}
+
+.pk-root .pk-bans-slots {
+  display: flex;
+  gap: 9px;
+}
+
+.pk-root .pk-bans-cap {
+  width: 5px;
+  height: 40px;
+  border-radius: 3px;
+  background: var(--c);
+  box-shadow: 0 0 12px var(--c);
+  animation: pkBreath 2.6s ease-in-out infinite;
+}
+
+.pk-root .pk-ban {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 56px;
+  color: rgba(220, 230, 250, 0.55);
+  background: linear-gradient(180deg, #13213f, #0a1328);
+  box-shadow: inset 0 0 0 1.5px rgba(var(--c-rgb), 0.45);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  overflow: hidden;
+}
+
+.pk-root .pk-ban > svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.pk-root .pk-ban.on-clock {
+  color: var(--gold-hi);
+  box-shadow: inset 0 0 0 2px var(--gold), inset 0 0 18px rgba(246, 196, 83, 0.55);
+  animation: pkBanPulse 1.2s ease-in-out infinite;
+}
+
+.pk-root .pk-ban-hero {
+  position: absolute;
+  inset: 0;
+  animation: pkBanSlam 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.pk-root .pk-fill {
+  width: 100%;
+  height: 100%;
+}
+
+.pk-root .pk-ban-slash {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  top: 50%;
+  height: 3px;
+  background: #ff3b55;
+  box-shadow: 0 0 8px #ff3b55;
+  transform: rotate(-28deg);
+  transform-origin: center;
+  animation: pkSlash 0.4s 0.3s both;
+}
+
+.pk-root .pk-ban.filled {
+  box-shadow: inset 0 0 0 1.5px rgba(255, 59, 85, 0.75), 0 0 10px rgba(255, 59, 85, 0.35);
+}
+
+.pk-root .pk-ban-burst {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(255, 59, 85, 0.75) 45%, transparent 78%);
+  opacity: 0;
+  pointer-events: none;
+  animation: pkBanBurst 0.8s ease-out both;
+}
+
+.pk-root .pk-ban-by {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  padding: 1px 4px 0;
+  overflow: hidden;
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 13px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #fff;
+  background: linear-gradient(0deg, rgba(90, 0, 14, 0.92), rgba(90, 0, 14, 0.6));
+}
+
+.pk-root .pk-ban-by.is-empty {
+  background: linear-gradient(0deg, rgba(8, 16, 36, 0.92), rgba(8, 16, 36, 0.45));
+  color: rgba(230, 236, 255, 0.78);
+}
+
+.pk-root .pk-ban.filled .pk-ban-by {
+  animation: pkBanBy 0.45s 0.55s both;
+}
+
+.pk-root .pk-ban-face {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  z-index: 4;
+  width: 16px;
+  height: 16px;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px #fff, 0 0 8px rgba(255, 59, 85, 0.7);
+  animation: pkBanBy 0.4s 0.35s both;
+}
+
+.pk-root .pk-ban.is-banning {
+  animation: pkBanLock 0.7s ease-out;
+}
+
+.pk-root .pk-ban.is-banning .pk-ban-hero {
+  animation: pkBanSlam 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@keyframes pkBanBurst {
+  0% { opacity: 0; transform: scale(0.4); }
+  25% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+@keyframes pkBanBy {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* ───────────────────────── Team panels ───────────────────────── */
+
+.pk-root .pk-panel {
+  position: absolute;
+  top: 432px;
+  width: 712px;
+  height: 368px;
+  padding: 2px;
+  clip-path: var(--chamfer);
+  background: linear-gradient(135deg, var(--c-hi), rgba(var(--c-rgb), 0.35) 40%, rgba(var(--c-rgb), 0.35) 60%, var(--c-hi));
+}
+
+.pk-root .pk-panel::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  clip-path: polygon(19px 0, 100% 0, 100% calc(100% - 19px), calc(100% - 19px) 100%, 0 100%, 0 19px);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(var(--c-rgb), 0.28), transparent 70%),
+    linear-gradient(180deg, rgba(10, 22, 52, 0.94), rgba(5, 11, 28, 0.96));
+}
+
+.pk-root .pk-panel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -30%;
+  width: 30%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  box-shadow: 0 0 12px #fff;
+  animation: pkEdgeRun 4.5s linear infinite;
+}
+
+.pk-root .pk-panel.side-blue {
+  left: 26px;
+  animation: pkSlideL 0.9s 0.3s both;
+}
+
+.pk-root .pk-panel.side-red {
+  right: 26px;
+  animation: pkSlideR 0.9s 0.3s both;
+}
+
+.pk-root .pk-panel.side-red::after {
+  animation-delay: -2.25s;
+}
+
+.pk-root .pk-panel-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 18px 0 24px;
+}
+
+.pk-root .pk-panel-anchor {
+  width: 26px;
+  height: 26px;
+  color: var(--c-hi);
+  filter: drop-shadow(0 0 6px var(--c));
+}
+
+.pk-root .pk-panel-anchor svg,
+.pk-root .pk-title-anchor svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.pk-root .pk-panel-name {
+  font-family: 'Exo 2', 'Rajdhani', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-hi);
+  text-shadow: 0 0 14px rgba(var(--c-rgb), 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 380px;
+}
+
+.pk-root .pk-panel-side {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  padding: 3px 8px;
+  color: rgba(230, 238, 252, 0.75);
+  border: 1px solid rgba(var(--c-rgb), 0.5);
+}
+
+.pk-root .pk-first {
+  position: relative;
+  margin-left: auto;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.16em;
+  color: #fff;
+  background: linear-gradient(90deg, rgba(var(--c-rgb), 0.15), rgba(var(--c-rgb), 0.45), rgba(var(--c-rgb), 0.15)) 0 0 / 200% 100%;
+  box-shadow: inset 0 0 0 1.5px var(--c-hi);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  animation: pkShimmerBg 2.6s linear infinite;
+}
+
+.pk-root .pk-first b {
+  color: var(--c-hi);
+  margin-right: 4px;
+}
+
+.pk-root .pk-cards {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  height: calc(100% - 52px);
+  padding: 4px 14px 14px;
+}
+
+/* ───────────────────────── Pick cards ───────────────────────── */
+
+.pk-root .pk-card {
+  position: relative;
+  translate: 0 0;
+  transition: translate 0.4s ease;
+  animation: pkCardIn 0.7s calc(0.5s + var(--i) * 0.08s) both;
+}
+
+.pk-root .pk-card-glow {
+  position: absolute;
+  inset: -6px;
+  border-radius: 8px;
+  background: rgba(var(--c-rgb), 0.9);
+  filter: blur(14px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pk-root .pk-card-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--c-hi);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pk-root .pk-card-frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  background: var(--c-deep);
+}
+
+.pk-root .pk-card-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1.5px rgba(var(--c-rgb), 0.55);
+  transition: box-shadow 0.4s;
+}
+
+.pk-root .pk-card-frame > * {
+  position: absolute;
+}
+
+.pk-root .pk-card-bg {
+  inset: 0;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 12px),
+    radial-gradient(ellipse 90% 60% at 50% 40%, rgba(var(--c-rgb), 0.35), transparent 70%),
+    linear-gradient(180deg, rgba(var(--c-rgb), 0.18), var(--c-deep) 60%, #030712);
+  background-size: 34px 34px, 100% 100%, 100% 100%;
+  animation: pkBgSlide 6s linear infinite;
+}
+
+/* Glowing CME lettering behind the player / team picture */
+.pk-root .pk-cme {
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 118px;
+  line-height: 0.84;
+  filter: drop-shadow(0 0 8px rgba(var(--c-rgb), 0.95)) drop-shadow(0 0 22px rgba(var(--c-rgb), 0.6));
+}
+
+.pk-root .pk-cme span {
+  display: block;
+  color: rgba(var(--c-rgb), 0.12);
+  -webkit-text-stroke: 1.6px var(--c-hi);
+  background: linear-gradient(100deg, transparent 38%, rgba(255, 255, 255, 0.95) 50%, transparent 62%) -120% 0 / 250% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation:
+    pkCmeGlow 2.8s ease-in-out infinite,
+    pkCmeShine 4.2s ease-in-out infinite;
+}
+
+.pk-root .pk-cme span:nth-child(2) { animation-delay: -0.9s, -0.35s; }
+.pk-root .pk-cme span:nth-child(3) { animation-delay: -1.8s, -0.7s; }
+.pk-root .pk-card:nth-child(2) .pk-cme span { animation-delay: -0.4s, -0.8s; }
+.pk-root .pk-card:nth-child(3) .pk-cme span { animation-delay: -1.1s, -1.6s; }
+.pk-root .pk-card:nth-child(4) .pk-cme span { animation-delay: -1.7s, -2.4s; }
+.pk-root .pk-card:nth-child(5) .pk-cme span { animation-delay: -2.3s, -3.2s; }
+
+.pk-root .pk-card-photo {
+  inset: 0;
+  display: grid;
+  place-items: center;
+  animation: pkFloat 6s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -1.1s);
+}
+
+.pk-root .pk-card-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 12%;
+  -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+  filter: drop-shadow(0 0 10px rgba(var(--c-rgb), 0.7));
+}
+
+.pk-root .pk-card-photo img.is-logo {
+  width: 72%;
+  height: auto;
+  max-height: 46%;
+  object-fit: contain;
+  -webkit-mask-image: none;
+  mask-image: none;
+  filter: drop-shadow(0 0 14px rgba(var(--c-rgb), 0.9)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
+}
+
+.pk-root .pk-card-tag {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 34px;
+  letter-spacing: 0.08em;
+  color: #fff;
+  padding: 6px 10px;
+  background: rgba(3, 8, 22, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(var(--c-rgb), 0.6), 0 0 18px rgba(var(--c-rgb), 0.55);
+}
+
+.pk-root .pk-card-waves {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 96px;
+  pointer-events: none;
+}
+
+.pk-root .pk-card-waves::before,
+.pk-root .pk-card-waves::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40' preserveAspectRatio='none'%3E%3Cpath d='M0 14 Q15 4 30 14 T60 14 T90 14 T120 14 V40 H0Z' fill='%23000'/%3E%3C/svg%3E") repeat-x 0 100% / 50% 60%;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40' preserveAspectRatio='none'%3E%3Cpath d='M0 14 Q15 4 30 14 T60 14 T90 14 T120 14 V40 H0Z' fill='%23000'/%3E%3C/svg%3E") repeat-x 0 100% / 50% 60%;
+}
+
+.pk-root .pk-card-waves::before {
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(var(--c-rgb), 0.5), rgba(var(--c-rgb), 0.05));
+  animation: pkWave 5s linear infinite;
+}
+
+.pk-root .pk-card-waves::after {
+  bottom: -10px;
+  background: linear-gradient(180deg, rgba(160, 210, 255, 0.35), rgba(var(--c-rgb), 0.08));
+  animation: pkWave 8s linear infinite reverse;
+}
+
+.pk-root .pk-card-hero {
+  inset: 0;
+  overflow: hidden;
+}
+
+.pk-root .pk-card-hero .pk-wall {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.pk-root .pk-card-hero img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: 50% 20%;
+  opacity: 0;
+  transform-origin: 50% 30%;
+  transition: opacity 0.35s ease;
+  animation: pkKenBurns 14s ease-in-out infinite alternate;
+}
+
+.pk-root .pk-card-hero img.is-framed {
+  opacity: 1;
+}
+
+.pk-root .pk-card-scan {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 60px;
+  opacity: 0;
+  background: linear-gradient(180deg, transparent, rgba(246, 196, 83, 0.4) 80%, var(--gold-hi));
+  pointer-events: none;
+}
+
+.pk-root .pk-card-shade {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 45%;
+  background: linear-gradient(0deg, rgba(2, 6, 18, 0.92), rgba(2, 6, 18, 0.5) 45%, transparent);
+  pointer-events: none;
+}
+
+.pk-root .pk-card-flash {
+  inset: 0;
+  z-index: 8;
+  opacity: 0;
+  background: radial-gradient(ellipse at 50% 50%, #fff, rgba(var(--c-rgb), 0.8) 70%);
+  pointer-events: none;
+}
+
+.pk-root .pk-card-num {
+  z-index: 5;
+  top: 10px;
+  left: 12px;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(var(--c-rgb), 0.9), 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.pk-root .pk-card-check {
+  z-index: 5;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--c);
+  box-shadow: 0 0 12px var(--c);
+}
+
+.pk-root .pk-card-check svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+}
+
+.pk-root .pk-card-foot {
+  z-index: 5;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px 12px;
+  text-align: center;
+}
+
+.pk-root .pk-card-status {
+  display: flex;
+  align-items: baseline;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: rgba(226, 234, 250, 0.85);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+}
+
+.pk-root .pk-card-player {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.pk-root .pk-dots-anim {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 2px;
+}
+
+.pk-root .pk-dots-anim i {
+  width: 3px;
+  height: 3px;
+  background: currentColor;
+  animation: pkDot 1.2s ease-in-out infinite;
+}
+
+.pk-root .pk-dots-anim i:nth-child(2) { animation-delay: 0.2s; }
+.pk-root .pk-dots-anim i:nth-child(3) { animation-delay: 0.4s; }
+
+/* On the clock */
+.pk-root .pk-card.is-on-clock {
+  translate: 0 -6px;
+  z-index: 2;
+}
+
+.pk-root .pk-card.is-on-clock .pk-card-glow {
+  background: rgba(246, 196, 83, 0.95);
+  animation: pkGlowPulse 1.4s ease-in-out infinite;
+}
+
+.pk-root .pk-card.is-on-clock .pk-card-frame::after {
+  box-shadow: inset 0 0 0 2.5px var(--gold), inset 0 0 24px rgba(246, 196, 83, 0.45);
+}
+
+.pk-root .pk-card.is-on-clock .pk-card-scan {
+  animation: pkScan 2s linear infinite;
+}
+
+.pk-root .pk-card.is-on-clock .pk-card-status {
+  color: var(--gold-hi);
+  text-shadow: 0 0 10px rgba(246, 196, 83, 0.8), 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.pk-root .pk-card.is-on-clock .pk-cme span {
+  -webkit-text-stroke-color: var(--gold-hi);
+}
+
+.pk-root .pk-card.is-on-clock .pk-cme {
+  filter: drop-shadow(0 0 8px rgba(246, 196, 83, 0.95)) drop-shadow(0 0 22px rgba(246, 196, 83, 0.6));
+}
+
+/* Locked but hidden until its ×2 block completes */
+.pk-root .pk-card.is-hidden .pk-card-glow {
+  animation: pkGlowPulse 2.2s ease-in-out infinite;
+}
+
+.pk-root .pk-card.is-hidden .pk-card-frame::after {
+  box-shadow: inset 0 0 0 2px var(--c-hi), inset 0 0 26px rgba(var(--c-rgb), 0.6);
+}
+
+.pk-root .pk-card.is-hidden .pk-card-status {
+  color: var(--c-hi);
+  text-shadow: 0 0 10px rgba(var(--c-rgb), 0.9);
+}
+
+/* Hero locked in */
+.pk-root .pk-card.is-locked .pk-card-glow {
+  animation: pkGlowBreath 3.2s ease-in-out infinite;
+}
+
+.pk-root .pk-card.is-locked .pk-card-frame::after {
+  box-shadow: inset 0 0 0 2px var(--c-hi), inset 0 -40px 40px -20px rgba(var(--c-rgb), 0.55);
+}
+
+.pk-root .pk-card.is-locked .pk-card-frame::before {
+  content: '';
+  position: absolute;
+  z-index: 7;
+  top: -20%;
+  bottom: -20%;
+  width: 40%;
+  left: -60%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-18deg);
+  animation: pkCardShine 5s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.6s);
+  pointer-events: none;
+}
+
+.pk-root .pk-card.is-locked .pk-card-waves {
+  opacity: 0.5;
+}
+
+.pk-root .pk-card.is-locked .pk-card-status {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-weight: 400;
+  font-size: 30px;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow: 0 0 12px rgba(var(--c-rgb), 0.9), 0 2px 6px rgba(0, 0, 0, 0.9);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pk-root .pk-card.is-locked .pk-card-player {
+  font-size: 13px;
+  color: var(--c-hi);
+}
+
+/* Lock-in transition: glow burst → flash → wallpaper wipes up */
+.pk-root .pk-card.is-locking {
+  z-index: 3;
+}
+
+.pk-root .pk-card.is-locking .pk-card-frame {
+  animation: pkLockPop 0.9s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+
+.pk-root .pk-card.is-locking .pk-card-glow {
+  animation: pkGlowBurst 2.2s ease-out both;
+}
+
+.pk-root .pk-card.is-locking .pk-card-ring {
+  animation: pkRing 1s 0.1s ease-out both;
+}
+
+.pk-root .pk-card.is-locking .pk-card-flash {
+  animation: pkFlash 1s ease-out both;
+}
+
+.pk-root .pk-card.is-locking .pk-card-hero {
+  animation: pkHeroReveal 1.2s 0.3s cubic-bezier(0.25, 0.8, 0.3, 1) both;
+}
+
+.pk-root .pk-card.is-locking .pk-card-foot {
+  animation: pkFootIn 0.6s 1s both;
+}
+
+.pk-root .pk-card.is-locking .pk-cme {
+  animation: pkCmeBurst 0.8s ease-out both;
+}
+
+/* ───────────────────────── Center panel ───────────────────────── */
+
+.pk-root .pk-center {
+  position: absolute;
+  left: 746px;
+  top: 466px;
+  width: 428px;
+  height: 246px;
+  padding: 2px;
+  clip-path: var(--chamfer);
+  background: linear-gradient(90deg, #7cbaff, rgba(120, 150, 200, 0.4) 50%, #ff8a99);
+  animation: pkDrop 0.9s 0.45s both;
+}
+
+.pk-root .pk-center::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  clip-path: polygon(19px 0, 100% 0, 100% calc(100% - 19px), calc(100% - 19px) 100%, 0 100%, 0 19px);
+  background:
+    radial-gradient(ellipse 60% 70% at 50% 45%, rgba(90, 130, 220, 0.25), transparent 70%),
+    linear-gradient(180deg, rgba(12, 24, 56, 0.95), rgba(5, 11, 28, 0.97));
+}
+
+.pk-root .pk-center > * {
+  position: relative;
+}
+
+.pk-root .pk-center-turn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.2em;
+  color: var(--gold-hi);
+  text-shadow: 0 0 12px currentColor;
+}
+
+.pk-root .pk-center.turn-blue .pk-center-turn { color: #7cbaff; }
+.pk-root .pk-center.turn-red .pk-center-turn { color: #ff8a99; }
+
+.pk-root .pk-center-arrow {
+  width: 0;
+  height: 0;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 11px solid currentColor;
+  animation: pkArrow 1s ease-in-out infinite;
+}
+
+.pk-root .pk-center-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 96px;
+  align-items: center;
+  padding: 4px 18px 0;
+  height: 132px;
+}
+
+.pk-root .pk-center-word {
+  text-align: center;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 118px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: transparent;
+  background:
+    linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, 1) 50%, transparent 60%) -150% 0 / 250% 100% no-repeat,
+    linear-gradient(180deg, #ffffff 0%, #e6ecf6 46%, #9aa7bf 52%, #eef2f8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 0 16px rgba(160, 200, 255, 0.45)) drop-shadow(0 4px 0 rgba(0, 0, 0, 0.4));
+  animation:
+    pkWordIn 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both,
+    pkWordShine 3.4s 0.6s ease-in-out infinite;
+}
+
+.pk-root .pk-square {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.pk-root .pk-square-box {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  background: linear-gradient(145deg, var(--c), var(--c-deep));
+  box-shadow: inset 0 0 0 2px var(--c-hi), 0 0 14px rgba(var(--c-rgb), 0.5);
+  transition: box-shadow 0.4s, transform 0.4s;
+}
+
+.pk-root .pk-square-box img {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+}
+
+.pk-root .pk-square-box span {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 26px;
+  color: #fff;
+}
+
+.pk-root .pk-square.live .pk-square-box {
+  transform: scale(1.08);
+  animation: pkSquarePulse 1.3s ease-in-out infinite;
+}
+
+.pk-root .pk-square b {
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: #e8eefa;
+}
+
+.pk-root .pk-square small {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: rgba(200, 212, 236, 0.7);
+}
+
+.pk-root .pk-square.live small {
+  color: var(--c-hi);
+}
+
+.pk-root .pk-center-count {
+  margin-top: 6px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.18em;
+  color: rgba(214, 224, 244, 0.85);
+}
+
+.pk-root .pk-center-count strong {
+  color: #fff;
+  margin-left: 4px;
+}
+
+.pk-root .pk-center-match {
+  margin-top: 4px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  color: rgba(246, 196, 83, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 30px;
+}
+
+/* ───────────────────────── Pick order ───────────────────────── */
+
+.pk-root .pk-order {
+  position: absolute;
+  left: 746px;
+  top: 724px;
+  width: 428px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: pkRise2 0.8s 0.6s both;
+}
+
+.pk-root .pk-order-steps {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, rgba(10, 20, 46, 0.92), rgba(5, 11, 28, 0.95));
+  box-shadow: inset 0 0 0 1.5px rgba(150, 175, 220, 0.45);
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%);
+}
+
+.pk-root .pk-step {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 70px;
+  height: 42px;
+  margin-left: -5px;
+  font-weight: 700;
+  font-size: 18px;
+  color: #fff;
+  background: linear-gradient(180deg, var(--c-hi), var(--c) 55%, var(--c-deep));
+  clip-path: polygon(0 0, 84% 0, 100% 50%, 84% 100%, 0 100%, 16% 50%);
+  overflow: hidden;
+  transition: opacity 0.4s, filter 0.4s;
+}
+
+.pk-root .pk-step:first-child {
+  margin-left: 0;
+}
+
+.pk-root .pk-step::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -60%;
+  width: 50%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  transform: skewX(-20deg);
+  animation: pkStepShine 4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.18s);
+}
+
+.pk-root .pk-step.done {
+  opacity: 0.4;
+  filter: saturate(0.5);
+}
+
+.pk-root .pk-step.current {
+  animation: pkStepPulse 1s ease-in-out infinite;
+}
+
+.pk-root .pk-step.current::after {
+  animation-duration: 1.2s;
+  animation-delay: 0s;
+}
+
+.pk-root .pk-order-label {
+  margin-top: 4px;
+  padding: 5px 26px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: rgba(214, 224, 244, 0.9);
+  background: rgba(5, 11, 28, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(150, 175, 220, 0.35);
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 100%, 0 100%);
+}
+
+/* ───────────────────────── Keyframes ───────────────────────── */
+
+@keyframes pkSpin { to { rotate: 360deg; } }
+
+@keyframes pkFadeIn { from { opacity: 0; } }
+
+@keyframes pkBreath {
+  0%, 100% { opacity: 0.75; scale: 1; }
+  50% { opacity: 1; scale: 1.06; }
+}
+
+@keyframes pkDots {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes pkBob {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -8px; }
+}
+
+@keyframes pkFloat {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -5px; }
+}
+
+@keyframes pkBeamPulse {
+  0%, 100% { opacity: 0.55; }
+  45% { opacity: 1; }
+  50% { opacity: 0.7; }
+  55% { opacity: 1; }
+}
+
+@keyframes pkBeamRun {
+  to { top: 100%; }
+}
+
+@keyframes pkSweep {
+  0% { transform: rotate(18deg) translateX(-900px); }
+  60%, 100% { transform: rotate(18deg) translateX(2600px); }
+}
+
+@keyframes pkFloor {
+  to { background-position: 0 0, 0 60px; }
+}
+
+@keyframes pkDrift {
+  to { transform: translateX(-50%); }
+}
+
+@keyframes pkRise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 0.9; }
+  80% { opacity: 0.6; }
+  100% { transform: translate(var(--drift), -1100px); opacity: 0; }
+}
+
+@keyframes pkFadeDown {
+  from { opacity: 0; transform: translateY(-30px); }
+}
+
+@keyframes pkSlideL {
+  from { opacity: 0; transform: translateX(-120px); }
+}
+
+@keyframes pkSlideR {
+  from { opacity: 0; transform: translateX(120px); }
+}
+
+@keyframes pkDrop {
+  from { opacity: 0; transform: translateY(-40px) scale(0.92); }
+}
+
+@keyframes pkRise2 {
+  from { opacity: 0; transform: translateY(30px); }
+}
+
+@keyframes pkCardIn {
+  from { opacity: 0; transform: translateY(40px) scale(0.94); }
+}
+
+@keyframes pkEdgeRun {
+  0% { left: -30%; }
+  60%, 100% { left: 110%; }
+}
+
+@keyframes pkShimmerBg {
+  to { background-position: -200% 0; }
+}
+
+@keyframes pkBgSlide {
+  to { background-position: 34px 34px, 0 0, 0 0; }
+}
+
+@keyframes pkCmeGlow {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@keyframes pkCmeShine {
+  0%, 30% { background-position: -120% 0; }
+  70%, 100% { background-position: 220% 0; }
+}
+
+@keyframes pkWave {
+  to { transform: translateX(-50%); }
+}
+
+@keyframes pkKenBurns {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.08); }
+}
+
+@keyframes pkScan {
+  0% { transform: translateY(-60px); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(320px); opacity: 0; }
+}
+
+@keyframes pkDot {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+@keyframes pkGlowPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes pkGlowBreath {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes pkCardShine {
+  0%, 60% { left: -60%; }
+  85%, 100% { left: 130%; }
+}
+
+@keyframes pkLockPop {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.07); }
+  100% { transform: scale(1); }
+}
+
+@keyframes pkGlowBurst {
+  0% { opacity: 0; background: #fff; }
+  15% { opacity: 1; background: #fff; }
+  45% { opacity: 1; background: rgba(var(--c-rgb), 1); }
+  100% { opacity: 0.45; background: rgba(var(--c-rgb), 0.9); }
+}
+
+@keyframes pkRing {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.22, 1.12); }
+}
+
+@keyframes pkFlash {
+  0% { opacity: 0; }
+  20% { opacity: 0.95; }
+  100% { opacity: 0; }
+}
+
+@keyframes pkHeroReveal {
+  0% { clip-path: inset(100% 0 0 0); filter: brightness(3) saturate(0); transform: scale(1.3); }
+  55% { filter: brightness(1.6) saturate(0.8); }
+  100% { clip-path: inset(0 0 0 0); filter: brightness(1) saturate(1); transform: scale(1); }
+}
+
+@keyframes pkFootIn {
+  from { opacity: 0; transform: translateY(14px); }
+}
+
+@keyframes pkCmeBurst {
+  0% { transform: scale(1); opacity: 1; }
+  40% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+@keyframes pkArrow {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 4px 0; }
+}
+
+@keyframes pkWordIn {
+  from { opacity: 0; transform: scale(1.4); }
+}
+
+@keyframes pkWordShine {
+  0%, 35% { background-position: -150% 0, 0 0; }
+  75%, 100% { background-position: 250% 0, 0 0; }
+}
+
+@keyframes pkSquarePulse {
+  0%, 100% { box-shadow: inset 0 0 0 2px var(--c-hi), 0 0 14px rgba(var(--c-rgb), 0.5); }
+  50% { box-shadow: inset 0 0 0 2px #fff, 0 0 30px rgba(var(--c-rgb), 1); }
+}
+
+@keyframes pkStepShine {
+  0%, 55% { left: -60%; }
+  90%, 100% { left: 120%; }
+}
+
+@keyframes pkStepPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.55); }
+}
+
+@keyframes pkBanPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.4); }
+}
+
+@keyframes pkBanSlam {
+  from { opacity: 0; transform: scale(1.6); }
+}
+
+@keyframes pkSlash {
+  from { transform: rotate(-28deg) scaleX(0); }
+}
+
+@keyframes pkBanLock {
+  0% { filter: brightness(2.2); box-shadow: inset 0 0 0 2px #fff, 0 0 22px #ff3b55; }
+  40% { filter: brightness(1.35); box-shadow: inset 0 0 0 2px #ff3b55, 0 0 18px rgba(255, 59, 85, 0.8); }
+  100% { filter: brightness(1); }
+}

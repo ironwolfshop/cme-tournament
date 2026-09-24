@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Icon } from '../cme/Icon'
+import { INSTITUTION_LOGOS } from '../cme/InstitutionLogos'
 import {
   getTeam,
   roundLabel,
@@ -39,48 +40,67 @@ export default function BracketBoard({
   const final = state.matches.find((m) => m.round === Math.log2(state.bracketSize) - 1)
   return (
     <>
+      <div className="board-scene" aria-hidden>
+        <div className="board-scene-photo" />
+        <div className="board-scene-fog board-scene-fog-a" />
+        <div className="board-scene-fog board-scene-fog-b" />
+        <div className="board-scene-sweep" />
+        <div className="board-scene-glow" />
+        <div className="board-scene-veil" />
+      </div>
+      <div className="board-rail board-rail-top" aria-hidden />
+      <div className="board-rail board-rail-bottom" aria-hidden />
       <div className="board-grid" />
       <div className="board-border" />
+      {eight ? (
+        <>
+          <div className="board-side-label left">MLBB</div>
+          <div className="board-side-label right">
+            MORE THAN
+            <br />
+            A GAME
+          </div>
+        </>
+      ) : null}
       <header className="board-header">
         <div className="board-brand">
-          <div className="board-emblem">
-            <Icon name="trophy" />
-          </div>
+          <BoardSeals tone="header" />
           <div>
             <div className="board-eyebrow">CME · Mobile Legends: Bang Bang</div>
             <div className="board-title">{state.title}</div>
-            <div className="board-title-rule" />
+            <div className="board-tagline">Battle today · Greater tomorrow</div>
           </div>
         </div>
         <div className="format-badge">
           <span>SINGLE ELIMINATION</span>
           <strong>{state.teamCount} TEAMS</strong>
+          <em>Legends rise together</em>
         </div>
       </header>
       {eight ? (
         <>
           <div className="round-heading qf-left">
             <span>Quarterfinals</span>
-            <small>Drag to swap · locks after result</small>
+            <small>Drag teams to rearrange</small>
           </div>
           <div className="round-heading sf-left">
             <span>Semifinal</span>
-            <small>Winners only · not swappable</small>
+            <small>From quarterfinal winners</small>
           </div>
           <div className="round-heading sf-right">
             <span>Semifinal</span>
-            <small>Winners only · not swappable</small>
+            <small>From quarterfinal winners</small>
           </div>
           <div className="round-heading qf-right">
             <span>Quarterfinals</span>
-            <small>Drag to swap · locks after result</small>
+            <small>Drag teams to rearrange</small>
           </div>
           <svg className="bracket-lines" viewBox="0 0 1920 1080" aria-hidden="true">
             <path className={lineClass('line-sf1', feederReady(state, 'r1-m0'))} id="line-sf1" d="M358 353H396V749H358M396 551H434" />
             <path className={lineClass('line-sf2', feederReady(state, 'r1-m1'))} id="line-sf2" d="M1562 353H1524V749H1562M1524 551H1486" />
             <path className={lineClass('line-left-final', !!matchById(state, 'r1-m0')?.winnerId)} d="M722 551H764V713H806" />
             <path className={lineClass('line-right-final', !!matchById(state, 'r1-m1')?.winnerId)} d="M1198 551H1156V713H1114" />
-            <path className={`final-connector${final?.winnerId ? ' resolved' : ''}`} d="M960 626V507" />
+            <path className={`connector final-connector${final?.winnerId ? ' resolved' : ''}`} d="M960 626V507" />
             <circle className="junction" cx="396" cy="551" r="3" />
             <circle className="junction" cx="1524" cy="551" r="3" />
           </svg>
@@ -117,6 +137,9 @@ export default function BracketBoard({
           ))}
         </div>
       )}
+      <div className="board-podium-mark">
+        <BoardSeals tone="podium" />
+      </div>
       <footer className="board-footer">
         <div className="board-footer-left">
           <span className="footer-line" />
@@ -124,7 +147,8 @@ export default function BracketBoard({
             {state.teamCount} TEAMS · {Math.max(1, Math.round(Math.log2(state.bracketSize)))} ROUNDS · 1 CHAMPION
           </span>
         </div>
-        <span>
+        <div className="board-footer-mid">SKILLS · UNITY · HIGHER GROUNDS</div>
+        <span className="board-footer-right">
           {done} OF {total} RESULTS CONFIRMED
         </span>
       </footer>
@@ -247,22 +271,29 @@ function MatchCard({
         {match.winnerId ? (
           <>
             <Icon name="check" />
-            {getTeam(state, match.winnerId)?.name}{' '}
-            {match.nextMatchId ? 'advances' : 'wins the tournament'}
+            <span className="match-footer-text">
+              {getTeam(state, match.winnerId)?.name}
+              {match.nextMatchId ? ` → ${nextName(state, match)}` : ' wins'}
+            </span>
           </>
         ) : ready ? (
-          canPlace
-            ? `Drag to swap · or click to load · Winner to ${nextName(state, match)}`
-            : `Click to load · Winner to ${nextName(state, match)}`
+          <>
+            {canPlace ? <span className="match-footer-hint" aria-hidden>⋮⋮</span> : null}
+            <span className="match-footer-text">
+              {canPlace
+                ? `Rearrange · opens ${nextName(state, match)}`
+                : `Opens ${nextName(state, match)}`}
+            </span>
+          </>
         ) : match.round === 0 ? (
           <>
             <Icon name="clock" />
-            Waiting for earlier results
+            <span className="match-footer-text">Waiting on teams</span>
           </>
         ) : (
           <>
             <Icon name="clock" />
-            Locked · winners only (not swappable)
+            <span className="match-footer-text">Awaiting winners</span>
           </>
         )}
       </button>
@@ -337,17 +368,24 @@ function TeamRow({
         if (dragRef.current) return
         onOpen?.()
       }}
-      title={canDrag ? 'Drag to swap with another opening slot' : undefined}
+      title={canDrag ? 'Drag onto another opening team to swap' : undefined}
     >
+      {canDrag ? <span className="team-grip" aria-hidden>⋮⋮</span> : null}
       {team ? (
         <span className="team-badge">{team.logo ? <img src={team.logo} alt="" /> : team.tag}</span>
       ) : (
-        <span className="team-badge empty">
+        <span className="team-badge is-pending">
           <Icon name="shield" />
         </span>
       )}
       <span className={`team-name${team ? '' : ' pending-team'}`}>
-        {team ? team.name : feederName(state, match, slot)}
+        {team
+          ? team.name
+          : match.round === 0
+            ? (slot === 'A' ? match.teamBId : match.teamAId)
+              ? 'BYE'
+              : 'Empty'
+            : 'TBD'}
       </span>
       {team && <span className="seed-tag">#{team.seed}</span>}
       <span className={`match-score${match.winnerId ? '' : ' unset'}`}>
@@ -364,7 +402,7 @@ function Champion({ state }: { state: BracketState }) {
     <div className={`champion-card${team ? ' crowned' : ''}`}>
       <div className="champion-label">TOURNAMENT CHAMPION</div>
       <div className="champion-emblem">
-        {team?.logo ? <img src={team.logo} alt="" /> : <Icon name="trophy" />}
+        {team?.logo ? <img src={team.logo} alt="" /> : <TrophyMark />}
       </div>
       <div className="champion-name">{team ? team.name : 'Awaiting champion'}</div>
       <div className="champion-sub">
@@ -400,7 +438,38 @@ function feederReady(state: BracketState, matchId: string) {
 }
 
 function lineClass(id: string, active: boolean) {
-  return `${id}${active ? ' active' : ''}`
+  return `connector ${id}${active ? ' resolved' : ''}`
+}
+
+function BoardSeals({ tone }: { tone: 'header' | 'podium' }) {
+  return (
+    <div className={`board-seals board-seals-${tone}`} aria-label="Institution logos">
+      {INSTITUTION_LOGOS.map((logo, i) => (
+        <span
+          key={logo.id}
+          className={`board-seal board-seal-${logo.slot}`}
+          style={{ animationDelay: `${i * -1.4}s` }}
+          title={logo.alt}
+        >
+          <span className="board-seal-ring" />
+          <span className="board-seal-face">
+            <img src={logo.src} alt={logo.alt} draggable={false} />
+            <span className="board-seal-glint" />
+          </span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function TrophyMark() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M18 10h28v14c0 9-6 15-14 15s-14-6-14-15V10Z" />
+      <path d="M18 16H10c0 8 4 12 10 13M46 16h8c0 8-4 12-10 13" />
+      <path d="M32 39v8M22 54h20M24 47h16" />
+    </svg>
+  )
 }
 
 function nextName(state: BracketState, match: BracketMatch) {

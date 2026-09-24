@@ -1,10 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { Brand, Icon } from '../components/cme/Icon'
-import ControlNav from '../components/ControlNav'
+import StudioShell from '../components/cme/StudioShell'
 import OcrControlPanel from '../components/gameplay/OcrControlPanel'
 import HeroImage from '../components/HeroImage'
 import { getHero, searchHeroes } from '../data/heroes'
 import { getItem, ITEMS } from '../data/items'
+import {
+  openGameplayViewerWindow,
+} from '../lib/gameplayCapture'
+import { absoluteUrl, useLanOrigins } from '../lib/lanOrigins'
+import GameplayCastControls from '../components/gameplay/GameplayCastControls'
+import { syncSeriesToDraft } from '../lib/syncSeriesLabel'
+import { useBracketStore } from '../store/bracketStore'
+import { useDraftStore } from '../store/draftStore'
 import {
   formatClock,
   initGameplaySync,
@@ -14,6 +23,8 @@ import {
   type TeamSide,
 } from '../store/gameplayStore'
 import { initStingerSync, useStingerStore } from '../store/stingerStore'
+import { initCamsSync, useCamsStore } from '../store/camsStore'
+import '../styles/gameplay-preview.css'
 
 const EVENTS: { type: GameEventType; label: string; title: string }[] = [
   { type: 'turtle', label: 'Turtle', title: 'TURTLE SLAIN' },
@@ -24,7 +35,7 @@ const EVENTS: { type: GameEventType; label: string; title: string }[] = [
   { type: 'tower', label: 'Tower', title: 'TURRET DESTROYED' },
 ]
 
-type Tab = 'players' | 'capture' | 'display'
+type Tab = 'players' | 'capture' | 'display' | 'preview'
 type Dialog =
   | null
   | { kind: 'team'; side: TeamSide }
@@ -35,6 +46,7 @@ type Dialog =
 
 export default function GameplayControlPage() {
   const store = useGameplayStore()
+  const gameplayLive = useCamsStore((s) => s.gameplayLive)
   const [tab, setTab] = useState<Tab>('players')
   const [dialog, setDialog] = useState<Dialog>(null)
   const [toast, setToast] = useState('')
@@ -43,6 +55,7 @@ export default function GameplayControlPage() {
   useEffect(() => {
     initGameplaySync()
     initStingerSync()
+    initCamsSync()
     document.documentElement.style.background = '#0b0e15'
     document.body.style.background = '#0b0e15'
     document.documentElement.style.overflowY = 'auto'
@@ -92,10 +105,24 @@ export default function GameplayControlPage() {
   }
 
   return (
+    <StudioShell
+      crumb={
+        <>
+          <Link to="/control/tournament">Workspace</Link>
+          <span>/</span>
+          <span>Gameplay desk</span>
+        </>
+      }
+      note={
+        <>
+          <span className="dot" />
+          Overlay linked
+        </>
+      }
+    >
     <div className="cme-gc">
       <header className="topbar">
         <Brand />
-        <ControlNav />
         <div className="connection connected">Overlay linked</div>
       </header>
       <main className="workspace">
@@ -163,6 +190,8 @@ export default function GameplayControlPage() {
           <TeamPanel side="red" onEdit={() => setDialog({ kind: 'team', side: 'red' })} onEvent={announce} />
         </section>
 
+        <MatchResultPanel onToast={setToast} />
+
         <div className="tabs" role="tablist">
           <button className={`tab${tab === 'players' ? ' active' : ''}`} type="button" onClick={() => setTab('players')}>
             <Icon name="users" />
@@ -176,6 +205,11 @@ export default function GameplayControlPage() {
           <button className={`tab${tab === 'display' ? ' active' : ''}`} type="button" onClick={() => setTab('display')}>
             <Icon name="monitor" />
             Display settings
+          </button>
+          <button className={`tab${tab === 'preview' ? ' active' : ''}`} type="button" onClick={() => setTab('preview')}>
+            <Icon name="play" />
+            Gameplay Preview
+            {gameplayLive ? <span className="tab-count">LIVE</span> : null}
           </button>
         </div>
 
@@ -207,6 +241,8 @@ export default function GameplayControlPage() {
         )}
 
         {tab === 'capture' && <CapturePanel onToast={setToast} />}
+
+        {tab === 'preview' && <GameplaySharePanel live={gameplayLive} onToast={setToast} />}
 
         {tab === 'display' && (
           <section className="tab-panel">
@@ -260,9 +296,9 @@ export default function GameplayControlPage() {
                   <p className="display-note" style={{ marginTop: 12 }}>
                     Shoutcaster is a separate OBS source — not on the gameplay
                     overlay. Use{' '}
-                    <code>http://localhost:5173/overlay/cam/caster</code> or the{' '}
-                    <a href="/control/cams">Cams</a> /{' '}
-                    <a href="/control/casters">Shoutcasters</a> tabs.
+                    <code>http://localhost:5173/overlay/cam/caster</code> (this PC)
+                    or the LAN IP from <a href="/control/scenes">Scenes</a> /{' '}
+                    <a href="/control/cams">Cams</a>.
                   </p>
                 </div>
               </div>
@@ -377,6 +413,255 @@ export default function GameplayControlPage() {
         {toast}
       </div>
     </div>
+    </StudioShell>
+  )
+}
+
+function MatchResultPanel({ onToast }: { onToast: (msg: string) => void }) {
+  const blue = useGameplayStore((s) => s.blue)
+  const red = useGameplayStore((s) => s.red)
+  const bestOf = useGameplayStore((s) => s.bestOf)
+  const currentGame = useGameplayStore((s) => s.currentGame)
+  const gameLog = useGameplayStore((s) => s.gameLog)
+  const winnerSide = useGameplayStore((s) => s.winnerSide)
+  const mvpSide = useGameplayStore((s) => s.mvpSide)
+  const mvpIndex = useGameplayStore((s) => s.mvpIndex)
+  const declareGameWinner = useGameplayStore((s) => s.declareGameWinner)
+  const setMvp = useGameplayStore((s) => s.setMvp)
+  const clearMatchResult = useGameplayStore((s) => s.clearMatchResult)
+  const startNextGame = useGameplayStore((s) => s.startNextGame)
+  const setBestOf = useGameplayStore((s) => s.setBestOf)
+  const winsNeeded = useGameplayStore((s) => s.winsNeeded())
+  const seriesComplete = useGameplayStore((s) => s.isSeriesComplete())
+  const seriesLeader = useGameplayStore((s) => s.seriesLeader())
+
+  const winner = winnerSide ? (winnerSide === 'blue' ? blue : red) : null
+  const mvp =
+    mvpSide != null && mvpIndex != null
+      ? (mvpSide === 'blue' ? blue : red).players[mvpIndex]
+      : null
+  const currentLogged = gameLog.some((g) => g.game === currentGame)
+
+  function pickWinner(side: TeamSide) {
+    declareGameWinner(side)
+    syncSeriesToDraft()
+    const team = side === 'blue' ? blue : red
+    onToast(
+      `Game ${useGameplayStore.getState().currentGame} · ${team.tag || side.toUpperCase()} wins map — bracket unchanged. Pick MVP.`,
+    )
+  }
+
+  function pickMvp(side: TeamSide, index: number) {
+    setMvp(side, index)
+    const player = (side === 'blue' ? blue : red).players[index]
+    const label = player?.ign?.trim() || player?.name?.trim() || `Player ${index + 1}`
+    onToast(`MVP · ${label}`)
+  }
+
+  function goNextGame() {
+    const ok = startNextGame()
+    if (!ok) {
+      onToast('Finish this map first, or the series is already complete.')
+      return
+    }
+    syncSeriesToDraft()
+    useDraftStore.getState().resetDraft()
+    onToast(`Now drafting Game ${useGameplayStore.getState().currentGame}`)
+  }
+
+  function reportSeries() {
+    if (!seriesLeader) {
+      onToast(`Need ${winsNeeded} map wins before the bracket updates.`)
+      return
+    }
+    useBracketStore.getState().reportDraftWinner(seriesLeader)
+    const team = seriesLeader === 'blue' ? blue : red
+    onToast(`Series to ${team.tag || seriesLeader.toUpperCase()} — bracket updated.`)
+  }
+
+  return (
+    <section className="surface match-result-panel" aria-label="Match result">
+      <div className="surface-head">
+        <div>
+          <h3>Best of {bestOf} · Game {currentGame}</h3>
+          <p className="display-note" style={{ margin: '4px 0 0' }}>
+            Map wins only. The bracket does <strong>not</strong> move until you
+            report the series winner.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {([3, 5, 1] as const).map((n) => (
+            <button
+              key={n}
+              className={`btn small${bestOf === n ? ' gold' : ''}`}
+              type="button"
+              onClick={() => {
+                setBestOf(n)
+                syncSeriesToDraft()
+              }}
+            >
+              Bo{n}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="display-body" style={{ display: 'grid', gap: 16 }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 16,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+          }}
+        >
+          <span className="blue-text" style={{ color: '#6aafff' }}>
+            {blue.tag || 'BLUE'} {blue.seriesScore}
+          </span>
+          <span style={{ color: '#8fa5c1' }}>–</span>
+          <span style={{ color: '#ff839c' }}>
+            {red.seriesScore} {red.tag || 'RED'}
+          </span>
+          <span style={{ color: '#8fa5c1', fontWeight: 600 }}>
+            first to {winsNeeded}
+          </span>
+        </div>
+
+        {gameLog.length > 0 ? (
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>
+              Maps decided
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {gameLog.map((g) => {
+                const tag =
+                  g.winner === 'blue' ? blue.tag || 'BLUE' : red.tag || 'RED'
+                const mvpLabel = g.mvpIgn || g.mvpName
+                return (
+                  <span
+                    key={`g-${g.game}`}
+                    className="btn small"
+                    style={{ pointerEvents: 'none', opacity: 0.95 }}
+                  >
+                    Game {g.game}: {tag}
+                    {mvpLabel ? ` · MVP ${mvpLabel}` : ''}
+                  </span>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {!seriesComplete ? (
+          <>
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>
+                1 · Who won Game {currentGame}?
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  className={`btn${winnerSide === 'blue' ? ' gold' : ''}`}
+                  type="button"
+                  disabled={!blue.tag && !blue.name}
+                  onClick={() => pickWinner('blue')}
+                >
+                  {blue.tag || 'Blue'} wins map
+                </button>
+                <button
+                  className={`btn${winnerSide === 'red' ? ' gold' : ''}`}
+                  type="button"
+                  disabled={!red.tag && !red.name}
+                  onClick={() => pickWinner('red')}
+                >
+                  {red.tag || 'Red'} wins map
+                </button>
+                {currentLogged ? (
+                  <button
+                    className="btn small"
+                    type="button"
+                    onClick={() => {
+                      clearMatchResult()
+                      syncSeriesToDraft()
+                      onToast(`Game ${currentGame} result cleared`)
+                    }}
+                  >
+                    Undo this map
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            {winnerSide && winner ? (
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>
+                  2 · Select MVP (Game {currentGame})
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {winner.players.map((p, i) => {
+                    const label = p.ign?.trim() || p.name?.trim() || `P${i + 1}`
+                    const active = mvpSide === winnerSide && mvpIndex === i
+                    return (
+                      <button
+                        key={`${winnerSide}-mvp-${i}`}
+                        className={`btn small${active ? ' gold' : ''}`}
+                        type="button"
+                        onClick={() => pickMvp(winnerSide, i)}
+                        title={p.name}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {currentLogged ? (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button className="btn gold" type="button" onClick={goNextGame}>
+                  Start Game {Math.min(bestOf, currentGame + 1)} draft
+                </button>
+                {winnerSide && mvp ? (
+                  <a
+                    className="btn small"
+                    href="/overlay/victory?preview=1"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open Victory scene
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <p className="display-note" style={{ margin: 0 }}>
+              Series complete ·{' '}
+              <strong>
+                {(seriesLeader === 'blue' ? blue : red).tag || seriesLeader}{' '}
+                wins Bo{bestOf}
+              </strong>
+              . Bracket is still unchanged until you report it.
+            </p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button className="btn gold" type="button" onClick={reportSeries}>
+                Report series winner to bracket
+              </button>
+              <a
+                className="btn small"
+                href="/overlay/victory?preview=1"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open Victory scene
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -621,6 +906,111 @@ function CamControls({ side }: { side: TeamSide }) {
   )
 }
 
+function GameplaySharePanel({
+  live,
+  onToast,
+}: {
+  live: boolean
+  onToast: (message: string) => void
+}) {
+  const origins = useLanOrigins()
+  const [copied, setCopied] = useState('')
+  const watchLocal = absoluteUrl(origins.local, '/watch/gameplay')
+  const watchLan = origins.lan
+    ? absoluteUrl(origins.lan, '/watch/gameplay')
+    : null
+
+  function copyWatch(url: string, key: string) {
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopied(key)
+      window.setTimeout(() => setCopied(''), 1600)
+    })
+  }
+
+  return (
+    <section className="tab-panel gpv-desk">
+      <div className="section-heading">
+        <div>
+          <h2>Gameplay preview</h2>
+          <p>
+            Select the window to cast (BlueStacks / game), then open the LAN IP
+            link on the laptop for realtime watching.
+          </p>
+        </div>
+        <div className="gpv-actions">
+          <button className="btn gold" type="button" onClick={openGameplayViewerWindow}>
+            <Icon name="expand" />
+            Open Windows viewer
+          </button>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => copyWatch(watchLocal, 'local')}
+          >
+            <Icon name="link" />
+            {copied === 'local' ? 'Copied' : 'Copy localhost'}
+          </button>
+          {watchLan ? (
+            <button
+              className="btn"
+              type="button"
+              onClick={() => copyWatch(watchLan, 'lan')}
+            >
+              <Icon name="link" />
+              {copied === 'lan' ? 'Copied' : 'Copy LAN IP'}
+            </button>
+          ) : null}
+          <Link className="btn" to="/control/casters?tab=preview">
+            <Icon name="spark" />
+            Shoutcaster tab
+          </Link>
+        </div>
+      </div>
+      <div className="surface">
+        <div className="display-body">
+          <GameplayCastControls onToast={onToast} />
+        </div>
+      </div>
+      <div className="surface">
+        <div className="surface-head">
+          <h3>Share with shoutcasters</h3>
+          <span className={`connection${live ? ' connected' : ''}`}>
+            {live ? 'Connected · sharing' : 'Not captured'}
+          </span>
+        </div>
+        <div className="display-body">
+          <p className="display-note" style={{ marginTop: 0 }}>
+            {live
+              ? 'On the laptop open the LAN IP link below (same Wi‑Fi).'
+              : 'Select a window above first. Then open the LAN IP link on the laptop.'}
+          </p>
+          <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'var(--muted)' }}>
+            LOCALHOST
+          </div>
+          <code className="gpv-link">{watchLocal}</code>
+          {watchLan ? (
+            <>
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.12em',
+                  color: 'var(--muted)',
+                  marginTop: 10,
+                }}
+              >
+                LAN IP · LAPTOP
+              </div>
+              <code className="gpv-link" style={{ color: '#7ddea8' }}>
+                {watchLan}
+              </code>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function CapturePanel({ onToast }: { onToast: (message: string) => void }) {
   return (
     <section className="tab-panel">
@@ -630,7 +1020,7 @@ function CapturePanel({ onToast }: { onToast: (message: string) => void }) {
           <p>
             Capture the game window, map clock / team kills / towers /
             series, then start OCR. Gold stays manual. Use Edit team for
-            institution logos.
+            institution logos (ZSCMST, CME, Young Sailors Club).
           </p>
         </div>
       </div>
@@ -747,16 +1137,26 @@ function PlayerDialog({ side, index, onClose }: { side: TeamSide; index: number;
           e.preventDefault()
           const data = new FormData(e.currentTarget)
           const name = String(data.get('name') ?? '').trim()
+          const ign = String(data.get('ign') ?? '').trim()
           const heroName = String(data.get('hero') ?? '').trim().toLowerCase()
           const hero = heroes.find((item) => item.name.toLowerCase() === heroName || item.id === heroName)
           if (!name) return
-          update(side, index, { name, heroId: hero?.id ?? (heroName ? player.heroId : null) })
+          update(side, index, { name, ign, heroId: hero?.id ?? (heroName ? player.heroId : null) })
           onClose()
         }}
       >
         <label className="field">
           <span>Player name</span>
           <input name="name" defaultValue={player.name} maxLength={25} required />
+        </label>
+        <label className="field">
+          <span>In-game name (IGN)</span>
+          <input
+            name="ign"
+            defaultValue={player.ign ?? ''}
+            maxLength={20}
+            placeholder="MLBB nickname"
+          />
         </label>
         <label className="field">
           <span>Hero</span>

@@ -25,7 +25,7 @@ export default function StingerOverlayPage() {
     <div className="overlay-root cme-bo output-mode">
       {stinger.playing && (
         <div key={stinger.id ?? 'stinger'} className={`stinger effect-${stinger.style}`}>
-          <b>CME TOURNAMENT</b>
+          <b>{stinger.label || 'CME TOURNAMENT'}</b>
           <span>MOBILE LEGENDS: BANG BANG</span>
         </div>
       )}

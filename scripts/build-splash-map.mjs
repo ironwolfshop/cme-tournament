@@ -50,7 +50,7 @@ const DEFAULT_SKIN = {
   Bruno: 'Protector',
   Clint: 'West Rock',
   Nana: 'Sweet Schoolgirl',
-  Alice: 'Queen of Blood',
+  Alice: 'Lady of Blood',
   Karina: 'Blade of the Night',
   Akai: 'Panda Warrior',
   Granger: 'Deathly Violinist',
@@ -71,7 +71,15 @@ const DEFAULT_SKIN = {
   Cici: 'Buoyant Ascent',
   Nolan: 'Cosmic Wayfinder',
   Chip: 'Life Conductor',
-  Kalea: 'Sakura Haruno', // only splash currently in Sparkies
+  Zhuxin: 'Beacon of Spirits',
+  Suyou: 'Mask of the Immortal',
+  Lukas: 'Beast of Light',
+  Kalea: 'Ripple Edge',
+  Zetian: 'Celestial Empress',
+  Obsidia: "Sovereign of Dark's End",
+  Sora: 'Shifting Cloud',
+  Marcel: 'Soul Photographer',
+  Hirara: 'Fallen Scarlet',
   Valentina: 'Prophetess of the Night',
   Xavier: 'Defier of Light',
   Joy: 'Flash of Spirits',
@@ -128,7 +136,7 @@ const DEFAULT_SKIN = {
   Roger: 'White Wolf',
   Ruby: 'Little Red Hood',
   'Lapu-Lapu': 'Brave Blade',
-  Alpha: 'Blade of Enmity',
+  Alpha: 'Beta Prototype',
   Gord: 'Professor of Magic',
   Freya: 'Valkyrie',
   Sun: 'Monkey King',
@@ -154,17 +162,11 @@ const DEFAULT_SKIN = {
   'Popol and Kupa': 'Horned Thief',
   Yve: 'Astrowarden',
   Lylia: 'Little Witch',
-  Zhuxin: 'Beacon of Spirits',
-  Suyou: 'Mask of the Immortal',
-  Lukas: 'Naruto Uzumaki', // only splash currently in Sparkies
-  Zetian: 'Celestial Empress',
-  Obsidia: "Sovereign of Dark's End",
-  Sora: 'Shifting Cloud',
-  Marcel: 'Soul Photographer',
+  Baxia: 'Mystic Tortoise',
 }
 
 const FANCY =
-  /christmas|echo|mikasa|namikaze|iori|shiryu|saber\.|s\.t\.u\.n|p\.ace|lightborn|venom|k'\.|summer|carnival|atomic|honor|collab|starwars|sanrio|hello kitty|naruto|sakura|sasuke|uchiha|uzumaki|haruno/i
+  /christmas|echo|mikasa|namikaze|iori|shiryu|saber\.|s\.t\.u\.n|p\.ace|lightborn|venom|k'\.|summer|carnival|atomic|honor|collab|starwars|sanrio|hello kitty/i
 
 function pickDefault(hero, files) {
   const preferred = DEFAULT_SKIN[hero]

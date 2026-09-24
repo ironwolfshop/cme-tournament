@@ -22,7 +22,7 @@ export default function FeaturedPanel({ side, player, featured }: Props) {
     >
       {/* Live team WebRTC feed (phones publish on /cam) */}
       <div
-        className={`relative h-[168px] w-[168px] overflow-hidden border-2 bg-black/50 ${
+        className={`relative h-[150px] w-[200px] overflow-hidden border-2 bg-black/50 ${
           isBlue ? 'border-[#1e5cff]' : 'border-[#e11d2e]'
         }`}
         style={{

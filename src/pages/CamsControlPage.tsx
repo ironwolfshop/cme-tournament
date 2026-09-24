@@ -1,5 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import StudioShell from '../components/cme/StudioShell'
+import { absoluteUrl, useLanOrigins } from '../lib/lanOrigins'
 import { initCamsSync, useCamsStore } from '../store/camsStore'
 
 const PHONE_PORT = 5174
@@ -7,64 +9,105 @@ const PHONE_PORT = 5174
 /** Operator: set code + match name, copy phone link, OBS URLs */
 export default function CamsControlPage() {
   const store = useCamsStore()
+  const origins = useLanOrigins()
 
   useEffect(() => {
     initCamsSync()
-    document.documentElement.style.background = '#0b1220'
-    document.body.style.background = '#0b1220'
+    document.documentElement.style.background = '#0b0e15'
+    document.body.style.background = '#0b0e15'
   }, [])
 
-  const obsOrigin = useMemo(() => {
-    if (typeof window === 'undefined') return 'http://localhost:5173'
-    // Always prefer HTTP localhost for OBS (self-signed HTTPS stays blank in OBS)
-    const host = window.location.hostname
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return 'http://localhost:5173'
-    }
-    return `http://${host}:5173`
-  }, [])
-
-  const phoneOrigin = useMemo(() => {
-    if (typeof window === 'undefined') return `https://localhost:${PHONE_PORT}`
-    const host = window.location.hostname
-    if (host === 'localhost' || host === '127.0.0.1') {
-      // Show placeholder — operator should use LAN IP on phones
-      return `https://YOUR-LAN-IP:${PHONE_PORT}`
-    }
-    return `https://${host}:${PHONE_PORT}`
-  }, [])
-
-  const joinUrl = `${phoneOrigin}/cam`
+  const phoneLan =
+    origins.lanIps[0] != null
+      ? `https://${origins.lanIps[0]}:${PHONE_PORT}`
+      : null
+  const joinUrl = phoneLan
+    ? `${phoneLan}/cam`
+    : `https://YOUR-LAN-IP:${PHONE_PORT}/cam`
 
   function copy(text: string) {
     void navigator.clipboard.writeText(text).catch(() => undefined)
   }
 
+  const rows: {
+    label: string
+    path: string
+    live: boolean
+    tone: 'blue' | 'red' | 'teal'
+  }[] = [
+    {
+      label: 'Gameplay (with feeds)',
+      path: '/overlay/game',
+      live: store.blueLive || store.redLive || store.casterLive,
+      tone: 'teal',
+    },
+    {
+      label: 'Gameplay preview (shoutcasters)',
+      path: '/watch/gameplay',
+      live: store.gameplayLive,
+      tone: 'teal',
+    },
+    {
+      label: `${store.casterName} cam`,
+      path: '/overlay/cam/caster',
+      live: store.casterLive,
+      tone: 'teal',
+    },
+    {
+      label: `${store.blueName} cam`,
+      path: '/overlay/cam/blue',
+      live: store.blueLive,
+      tone: 'blue',
+    },
+    {
+      label: `${store.redName} cam`,
+      path: '/overlay/cam/red',
+      live: store.redLive,
+      tone: 'red',
+    },
+  ]
+
   return (
-    <div className="min-h-screen bg-[#0b1220] px-4 py-6 text-slate-100 font-ui">
-      <div className="mx-auto max-w-lg space-y-5">
-        <header className="flex items-end justify-between gap-3">
+    <StudioShell
+      crumb={
+        <>
+          <Link to="/control/tournament">Workspace</Link>
+          <span>/</span>
+          <span>Cams</span>
+        </>
+      }
+      note={
+        <>
+          <span className="dot" />
+          Phone join + OBS feeds
+        </>
+      }
+    >
+      <div className="studio-page" style={{ maxWidth: 720 }}>
+        <header className="page-head">
           <div>
-            <h1 className="font-display text-2xl font-extrabold text-white">
-              Team cams
-            </h1>
-            <p className="mt-1 text-sm text-slate-400">
-              OBS uses HTTP. Phones use HTTPS (port {PHONE_PORT}).
+            <div className="eyebrow">TALENT & CAMS</div>
+            <h1>Team cams</h1>
+            <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
+              OBS / this PC → localhost. Laptop → LAN IP. Phones use HTTPS (port{' '}
+              {PHONE_PORT}).
             </p>
           </div>
-          <Link
-            to="/control"
-            className="rounded bg-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-600"
-          >
-            Draft
-          </Link>
         </header>
 
         <section className="rounded-xl border border-amber-500/40 bg-amber-950/30 p-4 text-sm text-amber-100">
-          <b>OBS blank on HTTPS?</b> Put this in Browser Source (HTTP):
+          <b>OBS blank on HTTPS?</b> Use HTTP localhost on this PC:
           <code className="mt-2 block break-all rounded bg-black/40 px-2 py-2 text-xs text-sky-300">
-            {obsOrigin}/overlay/game
+            {absoluteUrl(origins.local, '/overlay/game')}
           </code>
+          {origins.lan ? (
+            <>
+              <div className="mt-2 text-xs text-amber-200/80">Laptop / LAN:</div>
+              <code className="mt-1 block break-all rounded bg-black/40 px-2 py-2 text-xs text-emerald-300">
+                {absoluteUrl(origins.lan, '/overlay/game')}
+              </code>
+            </>
+          ) : null}
           Do <b>not</b> use https:// for OBS — CEF rejects the self-signed cert.
         </section>
 
@@ -132,36 +175,19 @@ export default function CamsControlPage() {
         </section>
 
         <section className="rounded-xl border border-white/10 bg-white/5 p-4">
-          <div className="mb-3 text-sm font-bold">OBS Browser Sources (HTTP)</div>
-          <div className="space-y-2 text-sm">
-            <ObsRow
-              label="Gameplay (with feeds)"
-              live={store.blueLive || store.redLive || store.casterLive}
-              url={`${obsOrigin}/overlay/game`}
-              onCopy={copy}
-              tone="teal"
-            />
-            <ObsRow
-              label={`${store.casterName} cam`}
-              live={store.casterLive}
-              url={`${obsOrigin}/overlay/cam/caster`}
-              onCopy={copy}
-              tone="teal"
-            />
-            <ObsRow
-              label={`${store.blueName} cam`}
-              live={store.blueLive}
-              url={`${obsOrigin}/overlay/cam/blue`}
-              onCopy={copy}
-              tone="blue"
-            />
-            <ObsRow
-              label={`${store.redName} cam`}
-              live={store.redLive}
-              url={`${obsOrigin}/overlay/cam/red`}
-              onCopy={copy}
-              tone="red"
-            />
+          <div className="mb-3 text-sm font-bold">Browser Sources (HTTP)</div>
+          <div className="space-y-3 text-sm">
+            {rows.map((row) => (
+              <ObsRow
+                key={row.path}
+                label={row.label}
+                localUrl={absoluteUrl(origins.local, row.path)}
+                lanUrl={origins.lan ? absoluteUrl(origins.lan, row.path) : null}
+                live={row.live}
+                onCopy={copy}
+                tone={row.tone}
+              />
+            ))}
           </div>
           <p className="mt-3 text-xs text-slate-400">
             Assign the shoutcaster window feed under{' '}
@@ -172,19 +198,21 @@ export default function CamsControlPage() {
           </p>
         </section>
       </div>
-    </div>
+    </StudioShell>
   )
 }
 
 function ObsRow({
   label,
-  url,
+  localUrl,
+  lanUrl,
   live,
   onCopy,
   tone,
 }: {
   label: string
-  url: string
+  localUrl: string
+  lanUrl: string | null
   live: boolean
   onCopy: (t: string) => void
   tone: 'blue' | 'red' | 'teal'
@@ -196,15 +224,46 @@ function ObsRow({
         ? 'text-rose-300'
         : 'text-teal-300'
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-2 py-2">
-      <span
-        className={`h-2 w-2 shrink-0 rounded-full ${
-          live ? 'bg-emerald-400' : 'bg-slate-600'
-        }`}
-      />
+    <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+      <div className="mb-1.5 flex items-center gap-2">
+        <span
+          className={`h-2 w-2 shrink-0 rounded-full ${
+            live ? 'bg-emerald-400' : 'bg-slate-600'
+          }`}
+        />
+        <div className={`min-w-0 flex-1 font-semibold ${color}`}>{label}</div>
+      </div>
+      <div className="space-y-1.5">
+        <UrlLine label="Localhost" url={localUrl} tone="sky" onCopy={onCopy} />
+        {lanUrl ? (
+          <UrlLine label="LAN IP" url={lanUrl} tone="emerald" onCopy={onCopy} />
+        ) : (
+          <div className="text-[10px] text-slate-500">LAN IP detecting…</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function UrlLine({
+  label,
+  url,
+  tone,
+  onCopy,
+}: {
+  label: string
+  url: string
+  tone: 'sky' | 'emerald'
+  onCopy: (t: string) => void
+}) {
+  const color = tone === 'sky' ? 'text-sky-300' : 'text-emerald-300'
+  return (
+    <div className="flex items-center gap-2">
       <div className="min-w-0 flex-1">
-        <div className={`font-semibold ${color}`}>{label}</div>
-        <div className="truncate text-[10px] text-slate-500">{url}</div>
+        <div className="text-[9px] uppercase tracking-wider text-slate-500">
+          {label}
+        </div>
+        <div className={`truncate text-[10px] ${color}`}>{url}</div>
       </div>
       <button
         type="button"

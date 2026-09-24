@@ -1,3 +1,9 @@
+/**
+ * Refresh defaultSkinIcons from mapi.mobilelegends.com (through Chip #124).
+ * Post-Chip heroes keep Splash / local face URLs — prefer scripts/sync-heroes-2026.mjs.
+ *
+ * Run: node scripts/fetch-default-icons.mjs
+ */
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,15 +23,27 @@ const json = await res.json()
 const api = json.data ?? []
 const byName = new Map(api.map((h) => [String(h.name).toLowerCase(), h]))
 
-const aliases = {
-  minotaur: 'hylos',
+/** Keep post-Chip / missing-mapi icons when regenerating. */
+const KEEP = {
+  zhuxin: '/heroes/face/zhuxin.png?v=sept2026-hirara',
+  suyou: '/heroes/face/suyou.png?v=sept2026-hirara',
+  lukas: '/heroes/face/lukas.png?v=sept2026-hirara',
+  kalea: '/heroes/face/kalea.png?v=sept2026-hirara',
+  zetian: '/heroes/face/zetian.png?v=sept2026-hirara',
+  obsidia: '/heroes/face/obsidia.png?v=sept2026-hirara',
+  sora: '/heroes/face/sora.png?v=sept2026-hirara',
+  marcel: '/heroes/face/marcel.png?v=sept2026-hirara',
+  hirara: '/heroes/face/hirara.png?v=sept2026-hirara',
 }
 
 const missing = []
 const entries = []
 for (const hero of heroes) {
-  const key = hero.name.toLowerCase()
-  const hit = byName.get(key) ?? byName.get(aliases[hero.id] ?? '')
+  if (KEEP[hero.id]) {
+    entries.push(`  ${JSON.stringify(hero.id)}: ${JSON.stringify(KEEP[hero.id])},`)
+    continue
+  }
+  const hit = byName.get(hero.name.toLowerCase())
   if (!hit?.key) {
     missing.push(hero.name)
     continue
@@ -34,7 +52,7 @@ for (const hero of heroes) {
   entries.push(`  ${JSON.stringify(hero.id)}: ${JSON.stringify(url)},`)
 }
 
-const out = `/** Official default-skin heads from mapi.mobilelegends.com/hero/list. Special skins are not included. */
+const out = `/** Official default-skin heads from mapi.mobilelegends.com/hero/list (+ local faces for post-Chip). */
 export const DEFAULT_SKIN_ICON: Record<string, string> = {
 ${entries.join('\n')}
 }

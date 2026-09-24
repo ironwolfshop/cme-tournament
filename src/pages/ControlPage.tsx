@@ -1,212 +1,113 @@
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { Brand, Icon } from '../components/cme/Icon'
-import ControlNav from '../components/ControlNav'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Icon } from '../components/cme/Icon'
+import StudioShell from '../components/cme/StudioShell'
 import HeroImage from '../components/HeroImage'
-import { buildPickQueue, PICK_BLOCKS } from '../data/pickOrder'
-import { getHero, searchHeroes, type Hero } from '../data/heroes'
+import { buildPickQueue, PICK_BLOCKS, type PickTarget } from '../data/pickOrder'
+import { getHero, heroSplashUrl, HEROES, searchHeroes, type Hero } from '../data/heroes'
 import { getTeam } from '../lib/bracketEngine'
+import { isObsSyncConnected } from '../lib/obsSync'
+import { syncSeriesToDraft } from '../lib/syncSeriesLabel'
 import { initBracketSync, useBracketStore } from '../store/bracketStore'
 import {
   initDraftSync,
   useDraftStore,
   type TeamSide,
+  type TeamState,
 } from '../store/draftStore'
+import {
+  formatSeriesLabel,
+  initGameplaySync,
+  useGameplayStore,
+} from '../store/gameplayStore'
 import { initStingerSync, useStingerStore } from '../store/stingerStore'
+import { initTournamentSync, useTournamentStore } from '../store/tournamentStore'
+import '../styles/draft-control.css'
 
-const ROLES = ['All heroes', 'Tank', 'Fighter', 'Assassin', 'Mage', 'Marksman', 'Support']
+const ROLES: { id: string; label: string; icon: string | null }[] = [
+  { id: 'All', label: 'All', icon: null },
+  { id: 'Tank', label: 'Tank', icon: 'shield' },
+  { id: 'Fighter', label: 'Fighter', icon: 'swords' },
+  { id: 'Assassin', label: 'Assassin', icon: 'dagger' },
+  { id: 'Mage', label: 'Mage', icon: 'wand' },
+  { id: 'Marksman', label: 'Marksman', icon: 'target' },
+  { id: 'Support', label: 'Support', icon: 'heart' },
+]
+
+const DEFAULT_ART: Record<TeamSide, string> = { blue: 'alucard', red: 'yu-zhong' }
 
 type SlotTarget = { side: TeamSide; index: number; type: 'picks' | 'bans' }
+type Taken = Map<string, { side: TeamSide; type: 'picks' | 'bans' }>
 type Dialog =
   | null
   | { kind: 'match' }
+  | { kind: 'teams' }
   | { kind: 'team'; side: TeamSide }
   | { kind: 'reset' }
   | { kind: 'broadcast' }
   | { kind: 'advance' }
 
-function pad(n: number) {
-  return String(n).padStart(2, '0')
+function teamTag(team: TeamState, side: TeamSide) {
+  return team.tag || team.name || (side === 'blue' ? 'BLUE' : 'RED')
 }
 
-function draftActions() {
-  return useDraftStore.getState()
+function teamName(team: TeamState, side: TeamSide) {
+  return team.name || (side === 'blue' ? 'Blue team' : 'Red team')
 }
 
-/** Timer UI only — keeps the hero grid from re-rendering every second. */
-function TimerControls({
-  phaseDone,
-  onOpenSettings,
-}: {
-  phaseDone: boolean
-  onOpenSettings: () => void
-}) {
-  const timerSeconds = useDraftStore((s) => s.timerSeconds)
-  const timerRunning = useDraftStore((s) => s.timerRunning)
-  return (
-    <div className="control-group timer-group">
-      <div>
-        <div className="control-label">TURN TIMER</div>
-        <div className={`timer-readout${timerSeconds === 0 ? ' timer-expired' : ''}`}>
-          {pad(Math.floor(timerSeconds / 60))}:{pad(timerSeconds % 60)}
-          <span>s</span>
-        </div>
-      </div>
-      <div className="timer-buttons">
-        <button
-          className="btn primary"
-          type="button"
-          disabled={phaseDone}
-          onClick={() => draftActions().setTimerRunning(!timerRunning)}
-        >
-          <Icon name={timerRunning ? 'pause' : 'play'} />
-          {timerRunning ? 'Pause' : 'Start'}
-        </button>
-        <button
-          className="btn square"
-          type="button"
-          aria-label="Reset timer"
-          onClick={() => {
-            const d = draftActions()
-            d.setTimerRunning(false)
-            d.setTimerSeconds(30)
-          }}
-        >
-          <Icon name="rotate" />
-        </button>
-        <button
-          className="btn ghost square"
-          type="button"
-          aria-label="Match settings"
-          onClick={onOpenSettings}
-        >
-          <Icon name="settings" />
-        </button>
-      </div>
-    </div>
-  )
+/** 0-based position of a ban in the alternating ban order. */
+function banStep(side: TeamSide, index: number, first: TeamSide) {
+  return index * 2 + (side === first ? 0 : 1)
 }
-
-const HeroCard = memo(function HeroCard({
-  hero,
-  used,
-  isSelected,
-  disabled,
-  onLock,
-}: {
-  hero: Hero
-  used: { side: TeamSide; type: 'picks' | 'bans' } | undefined
-  isSelected: boolean
-  disabled: boolean
-  onLock: (id: string) => void
-}) {
-  return (
-    <button
-      type="button"
-      className={`hero-card${isSelected ? ' selected' : ''}${used ? ' unavailable' : ''}`}
-      disabled={disabled}
-      aria-pressed={isSelected}
-      onClick={() => onLock(hero.id)}
-    >
-      <span className="hero-art">
-        <HeroImage hero={hero} className="cme-fill" showNameFallback={false} lazy />
-        {isSelected && (
-          <span className="selected-check">
-            <Icon name="check" />
-          </span>
-        )}
-      </span>
-      {used && (
-        <span
-          className="hero-check"
-          style={{ background: used.side === 'blue' ? '#385c8a' : '#7c3f52' }}
-        >
-          <Icon name={used.type === 'bans' ? 'ban' : 'check'} />
-        </span>
-      )}
-      <span className="hero-caption">{hero.name}</span>
-    </button>
-  )
-})
-
-const HeroPool = memo(function HeroPool({
-  heroes,
-  taken,
-  selected,
-  canLock,
-  onLock,
-  onClearFilters,
-}: {
-  heroes: Hero[]
-  taken: Map<string, { side: TeamSide; type: 'picks' | 'bans' }>
-  selected: string | null
-  canLock: boolean
-  onLock: (id: string) => void
-  onClearFilters: () => void
-}) {
-  if (heroes.length === 0) {
-    return (
-      <div className="hero-grid-wrap">
-        <div className="hero-grid">
-          <div className="empty-search">
-            No heroes found.
-            <br />
-            <button className="btn ghost small" type="button" onClick={onClearFilters}>
-              Clear filters
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-  return (
-    <div className="hero-grid-wrap">
-      <div className="hero-grid">
-        {heroes.map((hero) => (
-          <HeroCard
-            key={hero.id}
-            hero={hero}
-            used={taken.get(hero.id)}
-            isSelected={selected === hero.id}
-            disabled={!!taken.get(hero.id) || !canLock}
-            onLock={onLock}
-          />
-        ))}
-      </div>
-    </div>
-  )
-})
 
 export default function ControlPage() {
+  const navigate = useNavigate()
+  const phase = useDraftStore((s) => s.phase)
   const blue = useDraftStore((s) => s.blue)
   const red = useDraftStore((s) => s.red)
-  const phase = useDraftStore((s) => s.phase)
-  const firstPickSide = useDraftStore((s) => s.firstPickSide)
+  const firstPickSide = useDraftStore((s) => s.firstPickSide ?? 'blue')
   const matchLabel = useDraftStore((s) => s.matchLabel)
   const historyLen = useDraftStore((s) => s.history.length)
-  const timerRunning = useDraftStore((s) => s.timerRunning)
   const bracket = useBracketStore()
-  const [query, setQuery] = useState('')
-  const [role, setRole] = useState('All heroes')
-  const [selected, setSelected] = useState<string | null>(null)
+  const seriesBestOf = useGameplayStore((s) => s.bestOf)
+  const seriesGame = useGameplayStore((s) => s.currentGame)
+  const gBlue = useGameplayStore((s) => s.blue)
+  const gRed = useGameplayStore((s) => s.red)
+  const [lastLocked, setLastLocked] = useState<string | null>(null)
   const [manual, setManual] = useState<SlotTarget | null>(null)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [toast, setToast] = useState('')
+  const [syncOk, setSyncOk] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     initDraftSync()
+    initGameplaySync()
     initStingerSync()
     initBracketSync()
-    document.documentElement.style.background = '#0b0e15'
-    document.body.style.background = '#0b0e15'
+    initTournamentSync()
+    document.documentElement.style.background = '#040a1a'
+    document.body.style.background = '#040a1a'
   }, [])
 
   useEffect(() => {
-    if (!timerRunning) return
-    const id = window.setInterval(() => useDraftStore.getState().tickTimer(), 1000)
+    const id = window.setInterval(() => {
+      setSyncOk(isObsSyncConnected())
+      setNow(Date.now())
+    }, 1000)
+    setSyncOk(isObsSyncConnected())
     return () => window.clearInterval(id)
-  }, [timerRunning])
+  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -214,33 +115,29 @@ export default function ControlPage() {
     return () => window.clearTimeout(id)
   }, [toast])
 
-  const heroes = useMemo(
-    () => searchHeroes(query).filter((h) => role === 'All heroes' || h.role === role),
-    [query, role],
-  )
+  useEffect(() => {
+    if (!lastLocked) return
+    const id = window.setTimeout(() => setLastLocked(null), 650)
+    return () => window.clearTimeout(id)
+  }, [lastLocked])
 
-  const taken = useMemo(() => {
-    const map = new Map<string, { side: TeamSide; type: 'picks' | 'bans' }>()
-    blue.bans.forEach((id) => id && map.set(id, { side: 'blue', type: 'bans' }))
-    blue.picks.forEach((id) => id && map.set(id, { side: 'blue', type: 'picks' }))
-    red.bans.forEach((id) => id && map.set(id, { side: 'red', type: 'bans' }))
-    red.picks.forEach((id) => id && map.set(id, { side: 'red', type: 'picks' }))
+  const taken = useMemo<Taken>(() => {
+    const map: Taken = new Map()
+    for (const side of ['blue', 'red'] as const) {
+      const team = side === 'blue' ? blue : red
+      team.bans.forEach((id) => id && map.set(id, { side, type: 'bans' }))
+      team.picks.forEach((id) => id && map.set(id, { side, type: 'picks' }))
+    }
     return map
   }, [blue, red])
 
-  const queue = useMemo(
-    () => buildPickQueue(firstPickSide ?? 'blue'),
-    [firstPickSide],
-  )
+  const queue = useMemo(() => buildPickQueue(firstPickSide), [firstPickSide])
 
   const target = useMemo<SlotTarget | null>(() => {
     if (phase === 'done') return null
     if (manual && phase === (manual.type === 'bans' ? 'ban' : 'pick')) return manual
     if (phase === 'ban') {
-      const order: TeamSide[] = [
-        firstPickSide ?? 'blue',
-        firstPickSide === 'red' ? 'blue' : 'red',
-      ]
+      const order: TeamSide[] = [firstPickSide, firstPickSide === 'red' ? 'blue' : 'red']
       for (let i = 0; i < 5; i++) {
         for (const side of order) {
           const team = side === 'blue' ? blue : red
@@ -249,60 +146,64 @@ export default function ControlPage() {
       }
       return null
     }
-    const next = queue.find((step) => !(step.side === 'blue' ? blue : red).picks[step.slot])
+    const next = queue.find((step) => {
+      const team = step.side === 'blue' ? blue : red
+      return !team.picks[step.slot]
+    })
     if (!next) return null
     return { side: next.side, index: next.slot, type: 'picks' }
   }, [manual, queue, phase, firstPickSide, blue, red])
 
-  const available = useMemo(
-    () => searchHeroes('').filter((h) => !taken.has(h.id)).length,
-    [taken],
+  function focusSlot(next: SlotTarget) {
+    if (phase === 'done') return
+    const nextPhase = next.type === 'bans' ? 'ban' : 'pick'
+    useDraftStore.getState().selectSlot(next.side, next.index, nextPhase)
+    setManual(next)
+  }
+
+  function clearSlot(side: TeamSide, type: 'picks' | 'bans', index: number) {
+    useDraftStore.getState().clearSlot(type === 'bans' ? 'ban' : 'pick', side, index)
+    setManual({ side, index, type })
+  }
+
+  /** Click = lock immediately into the active ban/pick slot. */
+  const lockHero = useCallback(
+    (heroId: string) => {
+      if (!heroId || !target || taken.has(heroId)) return
+      const draft = useDraftStore.getState()
+      if (draft.phase === 'done') return
+      if (target.type === 'bans') draft.setBan(target.side, target.index, heroId)
+      else draft.setPick(target.side, target.index, heroId)
+      const hero = getHero(heroId)
+      const team = target.side === 'blue' ? draft.blue : draft.red
+      setToast(
+        `${hero?.name ?? 'Hero'} ${target.type === 'bans' ? 'banned' : 'locked'} for ${teamTag(team, target.side)}`,
+      )
+      setLastLocked(heroId)
+      setManual(null)
+    },
+    [target, taken],
   )
 
-  function focusSlot(next: SlotTarget) {
-    const d = draftActions()
-    const nextPhase = next.type === 'bans' ? 'ban' : 'pick'
-    if (phase !== nextPhase) d.setPhase(nextPhase)
-    d.setActiveSide(next.side)
-    d.setActiveSlot(next.index)
-    setManual(next)
-    setSelected(null)
-  }
-
-  function lockHero(heroId?: string | null) {
-    const id = heroId ?? selected
-    if (!id || !target || taken.has(id)) return
-    const team = target.side === 'blue' ? blue : red
-    setSelected(id)
-    setManual(null)
-    const d = draftActions()
-    if (target.type === 'bans') {
-      d.setBan(target.side, target.index, id)
-      setToast(`${getHero(id)?.name ?? 'Hero'} banned · ${team.tag}`)
-      return
-    }
-    const step = queue.find((s) => s.side === target.side && s.slot === target.index)
-    d.setPick(target.side, target.index, id)
-    if (step && step.blockSize > 1 && step.indexInBlock < step.blockSize - 1) {
-      setToast(
-        `${getHero(id)?.name ?? 'Hero'} selected · ${step.indexInBlock + 1}/${step.blockSize} — pick one more to lock`,
-      )
-      return
-    }
-    setToast(`${getHero(id)?.name ?? 'Hero'} locked · ${team.tag}`)
-  }
-
   function setPhase(next: 'ban' | 'pick' | 'done') {
+    const draft = useDraftStore.getState()
     if (next === 'done') {
-      const ready = [...blue.picks, ...red.picks].every(Boolean)
+      const ready = [...draft.blue.picks, ...draft.red.picks].every(Boolean)
       if (!ready) {
         setToast('Fill all 10 pick slots before finishing the draft.')
         return
       }
     }
-    draftActions().setPhase(next)
+    draft.setPhase(next)
     setManual(null)
-    setSelected(null)
+  }
+
+  function saveAndContinue() {
+    if (phase !== 'done') {
+      setToast('Draft saved. Finish all 10 picks to continue.')
+      return
+    }
+    navigate('/control/game')
   }
 
   useEffect(() => {
@@ -310,322 +211,338 @@ export default function ControlPage() {
       const tag = (e.target as HTMLElement | null)?.tagName
       const editing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
       if (dialog) return
-      if (e.key === '/' && !editing) {
+      const mod = e.ctrlKey || e.metaKey
+      const key = e.key.toLowerCase()
+      if ((e.key === '/' && !editing) || (mod && key === 'f')) {
         e.preventDefault()
         searchRef.current?.focus()
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !editing) {
+        searchRef.current?.select()
+      } else if (mod && key === 'z' && !editing) {
         e.preventDefault()
-        draftActions().undo()
-      }
-      if (e.key === 'Enter' && !editing && selected) {
+        useDraftStore.getState().undo()
+      } else if (mod && key === 's') {
         e.preventDefault()
-        lockHero(selected)
+        setToast('All changes saved.')
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  })
+  }, [dialog])
 
-  const lockedCount = (phase === 'ban' ? [...blue.bans, ...red.bans] : [...blue.picks, ...red.picks]).filter(
-    Boolean,
-  ).length
+  const lockedCount = (['blue', 'red'] as const).reduce((n, side) => {
+    const team = side === 'blue' ? blue : red
+    return n + (phase === 'ban' ? team.bans : team.picks).filter(Boolean).length
+  }, 0)
 
   const activeMatch = bracket.matches.find((m) => m.id === bracket.activeMatchId)
   const targetTeam = target ? (target.side === 'blue' ? blue : red) : null
 
+  const phaseTitle =
+    phase === 'ban' ? 'Ban phase' : phase === 'pick' ? 'Pick phase' : 'Draft complete'
+  const phaseSub = target
+    ? `${teamTag(targetTeam!, target.side)} is ${target.type === 'bans' ? 'banning' : 'picking'}… · Slot ${target.index + 1}`
+    : phase === 'ban'
+      ? 'Bans complete — move to picks'
+      : 'Both teams are locked in'
+
+  const artHero = (side: TeamSide) => {
+    const team = side === 'blue' ? blue : red
+    const picked = queue
+      .filter((q) => q.side === side && team.picks[q.slot])
+      .map((q) => team.picks[q.slot])
+    return picked[picked.length - 1] ?? DEFAULT_ART[side]
+  }
+
   return (
-    <div className="cme-draft">
-      <header className="topbar">
-        <Brand />
-        <ControlNav />
-        <div className="operator">
-          <Link className="preview-tag" to="/control/live">
-            Live desk
-          </Link>
-          <span className="operator-badge" title="Tournament operator">
-            OP
+    <StudioShell hideTopbar className="dcx-shell">
+    <div className="dcx">
+      <div className="dcx-backdrop" aria-hidden="true">
+        <CornerArt side="blue" heroId={artHero('blue')} />
+        <CornerArt side="red" heroId={artHero('red')} />
+      </div>
+
+      <header className="dcx-header">
+        <Link className="dcx-brand" to="/control/tournament" title="Back to tournament workspace">
+          <span className="dcx-emblem">
+            <Icon name="swords" />
+          </span>
+          <span>
+            <small>Tournament workspace</small>
+            <strong>Draft Control</strong>
+            <em>Manage · Pick · Ban · Dominate</em>
+          </span>
+        </Link>
+
+        <nav className="dcx-steps" aria-label="Match workflow">
+          <StepButton n={1} label="Settings" onClick={() => setDialog({ kind: 'match' })} />
+          <StepButton n={2} label="Teams" onClick={() => setDialog({ kind: 'teams' })} />
+          <StepButton n={3} label="Draft" active />
+          <StepButton n={4} label="Results" onClick={() => setDialog({ kind: 'advance' })} />
+        </nav>
+
+        <div className="dcx-actions">
+          <button
+            className="dcx-btn icon"
+            type="button"
+            title="Broadcast overlay"
+            aria-label="Broadcast overlay"
+            onClick={() => setDialog({ kind: 'broadcast' })}
+          >
+            <Icon name="monitor" />
+          </button>
+          <button
+            className="dcx-btn"
+            type="button"
+            disabled={!historyLen}
+            onClick={() => useDraftStore.getState().undo()}
+          >
+            <Icon name="undo" />
+            Undo
+          </button>
+          <button className="dcx-btn" type="button" onClick={() => setDialog({ kind: 'reset' })}>
+            <Icon name="rotate" />
+            Reset Draft
+          </button>
+          <button className="dcx-btn primary" type="button" onClick={saveAndContinue}>
+            <Icon name="save" />
+            Save &amp; Continue
+          </button>
+        </div>
+
+        <div className="dcx-org">
+          <img src="/logos/cme.png" alt="College of Maritime Education" draggable={false} />
+          <span>
+            <strong>CME Tournament</strong>
+            <small>Young Sailors Club</small>
+            <em>Discipline · Honor · Integrity</em>
           </span>
         </div>
       </header>
-      <main>
-        <div className="page-heading">
-          <div>
-            <div className="eyebrow">Tournament workspace</div>
-            <h1>
-              Draft control<span style={{ color: 'var(--gold)' }}>.</span>
-            </h1>
-          </div>
-          <div className="actions">
-            <button
-              className="btn ghost"
-              type="button"
-              disabled={!historyLen}
-              onClick={() => draftActions().undo()}
-            >
-              <Icon name="undo" />
-              <span className="button-label">Undo</span>
-            </button>
-            <button className="btn" type="button" onClick={() => setDialog({ kind: 'reset' })}>
-              <Icon name="rotate" />
-              <span className="button-label">Reset draft</span>
-            </button>
-            <button className="btn primary" type="button" onClick={() => setDialog({ kind: 'broadcast' })}>
-              <Icon name="monitor" />
-              <span className="button-label">Preview overlay</span>
-            </button>
-          </div>
+
+      <section className="dcx-matchbar" aria-label="Match status">
+        <div className="dcx-match">
+          <small>Match</small>
+          <strong>
+            BO{seriesBestOf} · Game {seriesGame}
+          </strong>
+          <span className="dcx-pair">
+            <b className="blue">{teamTag(blue, 'blue')}</b>
+            <i>vs</i>
+            <b className="red">{teamTag(red, 'red')}</b>
+            <span className="dcx-score">
+              {gBlue.seriesScore}–{gRed.seriesScore}
+            </span>
+          </span>
         </div>
 
-        <section className="controls" aria-label="Match controls">
-          <div className="control-group">
-            <button className="match-edit" type="button" onClick={() => setDialog({ kind: 'match' })}>
-              <div className="control-label">CURRENT MATCH</div>
-              <div className="match-label">
-                <span>{matchLabel}</span>
-                <Icon name="chevron" />
-              </div>
-            </button>
-            <span className="match-pair">
-              <span className="blue-text">{blue.tag}</span>
-              <span className="small-muted">vs</span>
-              <span className="red-text">{red.tag}</span>
-            </span>
+        <div className="dcx-phase">
+          <div className={`dcx-phase-plate${target?.side === 'red' ? ' red' : ''}`} role="status">
+            <small>Current phase</small>
+            <strong>{phaseTitle}</strong>
+            <span>{phaseSub}</span>
           </div>
-          <div className="control-group">
+          <PhaseTimeline
+            queue={queue}
+            blue={blue}
+            red={red}
+            target={target}
+            lockedLabel={`${lockedCount}/10 ${phase === 'ban' ? 'bans' : 'picks'}`}
+          />
+        </div>
+
+        <div className="dcx-match-right">
+          <div className="dcx-game">
+            <small>Game {seriesGame}</small>
+            <span>
+              <b className="blue">{teamTag(blue, 'blue')}</b> vs{' '}
+              <b className="red">{teamTag(red, 'red')}</b>
+            </span>
+            <button type="button" className="dcx-chip-btn" onClick={() => setDialog({ kind: 'match' })}>
+              <Icon name="refresh" />
+              Change
+            </button>
+          </div>
+          <div className="dcx-sync">
+            <small>Sync label</small>
             <div>
-              <div className="control-label">DRAFT PHASE</div>
-              <div className="segmented" role="group" aria-label="Draft phase">
-                {(['ban', 'pick', 'done'] as const).map((item, i) => (
-                  <button
-                    key={item}
-                    type="button"
-                    data-phase={item}
-                    className={phase === item ? 'active' : ''}
-                    aria-pressed={phase === item}
-                    onClick={() => setPhase(item)}
-                  >
-                    <span className="phase-number">0{i + 1}</span>
-                    {item === 'ban' ? 'Ban' : item === 'pick' ? 'Pick' : 'Done'}
-                  </button>
-                ))}
-              </div>
+              <span title={matchLabel}>{matchLabel || 'No label'}</span>
+              <button
+                type="button"
+                className="dcx-btn icon small"
+                title="Refresh match label from series score"
+                aria-label="Refresh match label from series score"
+                onClick={() => {
+                  syncSeriesToDraft()
+                  setToast(formatSeriesLabel(useGameplayStore.getState()))
+                }}
+              >
+                <Icon name="edit" />
+              </button>
             </div>
           </div>
-          <TimerControls phaseDone={phase === 'done'} onOpenSettings={() => setDialog({ kind: 'match' })} />
-        </section>
-
-        <div className="workspace">
-          <TeamColumn
-            side="blue"
-            target={target}
-            onFocus={focusSlot}
-            onClear={(type, index) => {
-              draftActions().clearSlot(type === 'bans' ? 'ban' : 'pick', 'blue', index)
-              setManual({ side: 'blue', index, type })
-            }}
-            onEdit={() => setDialog({ kind: 'team', side: 'blue' })}
-          />
-          <section className="hero-panel" id="hero-picker" aria-labelledby="hero-picker-title">
-            <div
-              className={`turn-banner${target?.side === 'red' ? ' red-turn' : ''}${phase === 'ban' ? ' ban-turn' : ''}${!target ? ' turn-complete' : ''}`}
-              role="status"
-            >
-              <div>
-                <div className="turn-label">
-                  <span className="turn-dot" />
-                  {!target ? 'All set' : phase === 'ban' ? 'Ban phase' : 'On the clock'}
-                </div>
-                <div className="turn-title">
-                  {target && targetTeam
-                    ? `${targetTeam.name} ${phase === 'ban' ? 'is banning' : 'is picking'} / Slot ${target.index + 1}`
-                    : phase === 'ban'
-                      ? 'Bans complete. Move to picks.'
-                      : 'Draft complete'}
-                </div>
-              </div>
-              <div className="turn-progress">
-                {phase === 'ban' ? 'Bans' : 'Picks'} locked
-                <br />
-                <b>{lockedCount}</b> / 10
-              </div>
+          <div className="dcx-mode">
+            <small>Draft phase</small>
+            <div className="dcx-seg" role="group" aria-label="Draft phase">
+              {(['ban', 'pick', 'done'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={phase === p ? 'active' : ''}
+                  aria-pressed={phase === p}
+                  onClick={() => setPhase(p)}
+                >
+                  {p === 'ban' ? 'Bans' : p === 'pick' ? 'Picks' : 'Done'}
+                </button>
+              ))}
             </div>
-            <div className="picker-tools">
-              <div className="picker-heading">
-                <h2 id="hero-picker-title">Hero pool</h2>
-                <span className="available-count">{available} available</span>
-              </div>
-              <div className="search-box">
-                <Icon name="search" />
-                <input
-                  ref={searchRef}
-                  type="search"
-                  value={query}
-                  placeholder="Search heroes…"
-                  aria-label="Search heroes"
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                <span className="key-hint" aria-hidden="true">
-                  /
-                </span>
-              </div>
-              <div className="role-tabs" aria-label="Filter heroes by role">
-                {ROLES.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    className={item === role ? 'active' : ''}
-                    aria-pressed={item === role}
-                    onClick={() => setRole(item)}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <HeroPool
-              heroes={heroes}
-              taken={taken}
-              selected={selected}
-              canLock={phase !== 'done' && !!target}
-              onLock={lockHero}
-              onClearFilters={() => {
-                setQuery('')
-                setRole('All heroes')
-              }}
-            />
-            <div className="lockbar">
-              <div className="selection-meta">
-                {selected && (
-                  <span className="portrait">
-                    <HeroImage heroId={selected} className="cme-fill" showNameFallback={false} />
-                  </span>
-                )}
-                <div>
-                  <div className="selection-title">
-                    {selected
-                      ? getHero(selected)?.name
-                      : target
-                        ? 'Click a hero to lock'
-                        : 'No selection needed'}
-                  </div>
-                  <div className="selection-sub">
-                    {target
-                      ? `${phase === 'ban' ? 'Ban' : 'Pick'} locks instantly on click · Slot ${target.index + 1}`
-                      : 'Both teams are ready.'}
-                  </div>
-                </div>
-              </div>
-              <div className="btn lock-button" aria-hidden style={{ pointerEvents: 'none', opacity: target ? 1 : 0.45 }}>
-                <Icon name={phase === 'ban' ? 'ban' : 'lock'} />
-                {phase === 'ban' ? 'Instant ban' : 'Instant lock'}
-              </div>
-            </div>
-          </section>
-          <TeamColumn
-            side="red"
-            target={target}
-            onFocus={focusSlot}
-            onClear={(type, index) => {
-              draftActions().clearSlot(type === 'bans' ? 'ban' : 'pick', 'red', index)
-              setManual({ side: 'red', index, type })
-            }}
-            onEdit={() => setDialog({ kind: 'team', side: 'red' })}
-          />
-        </div>
-
-        <div className="below-workspace">
-          <section className="draft-order" aria-label="Pick order">
-            <div className="order-label">
-              <strong>Pick sequence</strong>
-              <span>1 – 2 – 2 – 2 – 2 – 1</span>
-            </div>
-            <div className="order-track">
-              <PickSequence />
-            </div>
-          </section>
-          <div className="match-options">
-            <label className="first-label" htmlFor="first-team">
-              First pick
-            </label>
-            <select
-              id="first-team"
-              className="first-select"
-              value={firstPickSide ?? 'blue'}
-              onChange={(e) => draftActions().setFirstPickSide(e.target.value as TeamSide)}
-            >
-              <option value="blue">{blue.tag}</option>
-              <option value="red">{red.tag}</option>
-            </select>
           </div>
         </div>
+      </section>
 
-        <footer className="page-footer">
-          <div className="shortcuts">
-            <span>
-              <kbd>/</kbd>Search heroes
-            </span>
-            <span>
-              <kbd>Enter</kbd>Lock selection
-            </span>
-            <span>
-              <kbd>Ctrl Z</kbd>Undo
-            </span>
-          </div>
-          <div className="footer-tools">
-            <span>Changes sync to the broadcast overlay</span>
-            <button className="btn ghost small" type="button" onClick={() => setDialog({ kind: 'advance' })}>
-              <Icon name="trophy" />
-              Series result
-            </button>
-          </div>
-        </footer>
-      </main>
+      <div className="dcx-work">
+        <TeamPanel
+          side="blue"
+          team={blue}
+          first={firstPickSide === 'blue'}
+          target={target}
+          phase={phase}
+          onFocus={focusSlot}
+          onClear={(type, i) => clearSlot('blue', type, i)}
+          onEdit={() => setDialog({ kind: 'team', side: 'blue' })}
+        />
+        <HeroPanel
+          searchRef={searchRef}
+          taken={taken}
+          phase={phase}
+          canLock={!!target}
+          lastLocked={lastLocked}
+          onLock={lockHero}
+        />
+        <TeamPanel
+          side="red"
+          team={red}
+          first={firstPickSide === 'red'}
+          target={target}
+          phase={phase}
+          onFocus={focusSlot}
+          onClear={(type, i) => clearSlot('red', type, i)}
+          onEdit={() => setDialog({ kind: 'team', side: 'red' })}
+        />
+      </div>
+
+      <section className="dcx-sequence" aria-label="Draft sequence">
+        <div className="dcx-seq-title">Draft sequence</div>
+        <SequenceSide
+          side="blue"
+          team={blue}
+          first={firstPickSide}
+          queue={queue}
+          target={target}
+          onFocus={focusSlot}
+        />
+        <div className="dcx-vs">VS</div>
+        <SequenceSide
+          side="red"
+          team={red}
+          first={firstPickSide}
+          queue={queue}
+          target={target}
+          onFocus={focusSlot}
+        />
+      </section>
+
+      <footer className="dcx-footer">
+        <div className="dcx-keys">
+          <span className="dcx-keys-label">Keyboard shortcuts:</span>
+          <span>
+            <kbd>Ctrl + S</kbd>Save
+          </span>
+          <span>
+            <kbd>Ctrl + Z</kbd>Undo
+          </span>
+          <span>
+            <kbd>Ctrl + F</kbd>Search
+          </span>
+          <span>
+            <kbd>Enter</kbd>Lock top result
+          </span>
+        </div>
+        <div className="dcx-notes">
+          <b>Notes:</b>
+          Picks and bans save automatically and sync to the broadcast overlay.
+        </div>
+        <div className="dcx-status">
+          <span className={`dcx-dot${syncOk ? '' : ' warn'}`} />
+          {syncOk ? 'All changes saved' : 'Saved locally · overlay reconnecting…'}
+        </div>
+        <time className="dcx-clock">
+          {new Date(now).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          })}
+        </time>
+      </footer>
 
       {dialog?.kind === 'match' && (
-        <Modal title="Match settings" onClose={() => setDialog(null)}>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              const data = new FormData(e.currentTarget)
-              const label = String(data.get('match') ?? '').trim()
-              const seconds = Number(data.get('duration'))
-              if (!label || !Number.isInteger(seconds) || seconds < 5 || seconds > 300) return
-              const d = draftActions()
-              d.setMatchLabel(label)
-              d.setFirstPickSide(data.get('first') === 'red' ? 'red' : 'blue')
-              d.setTimerRunning(false)
-              d.setTimerSeconds(seconds)
-              setDialog(null)
-              setToast('Match settings updated.')
-            }}
-          >
-            <label className="form-field">
-              <span>Match label</span>
-              <input name="match" defaultValue={matchLabel} maxLength={42} required />
-            </label>
-            <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              <label className="form-field">
-                <span>First pick team</span>
-                <select name="first" defaultValue={firstPickSide ?? 'blue'}>
-                  <option value="blue">{blue.name}</option>
-                  <option value="red">{red.name}</option>
-                </select>
-              </label>
-              <label className="form-field">
-                <span>Turn timer (seconds)</span>
-                <MatchTimerDefaultInput />
-              </label>
-            </div>
-            <div className="dialog-actions">
-              <button className="btn" type="button" onClick={() => setDialog(null)}>
-                Cancel
-              </button>
-              <button className="btn primary" type="submit">
-                Save settings
+        <MatchSettingsDialog
+          onClose={() => setDialog(null)}
+          onSaved={() => setToast('Match settings updated.')}
+        />
+      )}
+
+      {dialog?.kind === 'teams' && (
+        <Modal title="Teams" wide onClose={() => setDialog(null)}>
+          {activeMatch?.teamAId && activeMatch.teamBId && (
+            <div className="dcx-load-match">
+              <span>
+                <small>Active bracket match</small>
+                <b>
+                  <span className="blue">{getTeam(bracket, activeMatch.teamAId)?.tag ?? 'BLUE'}</span>
+                  {' vs '}
+                  <span className="red">{getTeam(bracket, activeMatch.teamBId)?.tag ?? 'RED'}</span>
+                </b>
+              </span>
+              <button
+                type="button"
+                className="dcx-btn primary"
+                onClick={() => {
+                  const loaded = useTournamentStore.getState().loadMatchScenes(activeMatch.id)
+                  if (!loaded) bracket.loadMatchIntoDraft(activeMatch.id)
+                  setDialog(null)
+                  setToast('Active match loaded into the draft and overlay.')
+                }}
+              >
+                <Icon name="refresh" />
+                Load into draft
               </button>
             </div>
-          </form>
+          )}
+          <p className="dialog-note">Edit team names, codes, logos, and player rosters.</p>
+          <div className="dcx-teams-pick">
+            {(['blue', 'red'] as const).map((side) => {
+              const team = side === 'blue' ? blue : red
+              return (
+                <button
+                  key={side}
+                  type="button"
+                  className={`dcx-team-card ${side}`}
+                  onClick={() => setDialog({ kind: 'team', side })}
+                >
+                  <span className="dcx-logo">
+                    {team.logo ? <img src={team.logo} alt="" /> : teamTag(team, side).slice(0, 2)}
+                  </span>
+                  <span>
+                    <b>{teamTag(team, side)}</b>
+                    <small>{teamName(team, side)}</small>
+                  </span>
+                  <Icon name="edit" />
+                </button>
+              )
+            })}
+          </div>
         </Modal>
       )}
 
@@ -639,22 +556,14 @@ export default function ControlPage() {
             Clear all hero picks and bans for both teams. Team names and player rosters will stay in place.
           </p>
           <div className="dialog-actions">
-            <button className="btn" type="button" onClick={() => setDialog(null)}>
+            <button className="dcx-btn" type="button" onClick={() => setDialog(null)}>
               Keep draft
             </button>
             <button
-              className="btn danger"
+              className="dcx-btn danger"
               type="button"
               onClick={() => {
-                const d = draftActions()
-                for (const side of ['blue', 'red'] as const) {
-                  for (let i = 0; i < 5; i++) {
-                    d.clearSlot('ban', side, i)
-                    d.clearSlot('pick', side, i)
-                  }
-                }
-                d.setPhase('ban')
-                setSelected(null)
+                useDraftStore.getState().resetDraft()
                 setManual(null)
                 setDialog(null)
                 setToast('Draft reset. Begin with the bans.')
@@ -668,24 +577,24 @@ export default function ControlPage() {
 
       {dialog?.kind === 'broadcast' && (
         <Modal title="Broadcast overlay" wide onClose={() => setDialog(null)}>
-          <p className="dialog-note">Teams, picks, bans and the timer appear on the broadcast overlay.</p>
-          <div className="broadcast-tools">
-            <button className="btn" type="button" onClick={() => useStingerStore.getState().fire('wipe')}>
+          <p className="dialog-note">Teams, picks, and bans appear on the broadcast overlay.</p>
+          <div className="dcx-broadcast-tools">
+            <button className="dcx-btn" type="button" onClick={() => useStingerStore.getState().fire('wipe')}>
               Stinger · Wipe
             </button>
-            <button className="btn" type="button" onClick={() => useStingerStore.getState().fire('slam')}>
+            <button className="dcx-btn" type="button" onClick={() => useStingerStore.getState().fire('slam')}>
               Slam
             </button>
-            <button className="btn" type="button" onClick={() => useStingerStore.getState().fire('split')}>
+            <button className="dcx-btn" type="button" onClick={() => useStingerStore.getState().fire('split')}>
               Split
             </button>
           </div>
-          <div className="go-live-note">Open the overlay in OBS as a browser source at /overlay.</div>
+          <p className="dialog-note">Open the overlay in OBS as a browser source at /overlay.</p>
           <div className="dialog-actions">
-            <button className="btn" type="button" onClick={() => setDialog(null)}>
-              Close
-            </button>
-            <a className="btn primary" href="/overlay" target="_blank" rel="noreferrer">
+            <Link className="dcx-btn" to="/control/live" onClick={() => setDialog(null)}>
+              Live desk
+            </Link>
+            <a className="dcx-btn primary" href="/overlay" target="_blank" rel="noreferrer">
               Open full overlay
             </a>
           </div>
@@ -693,14 +602,13 @@ export default function ControlPage() {
       )}
 
       {dialog?.kind === 'advance' && (
-        <Modal title="Series result" onClose={() => setDialog(null)}>
+        <Modal title="Report series to bracket" onClose={() => setDialog(null)}>
           <p className="dialog-note">
-            {activeMatch
-              ? 'Advance the winner of the active bracket match.'
-              : 'Pick a ready match on the bracket page to record a series winner from here.'}
+            Only use this when the Bo{seriesBestOf} series is decided. Single map wins do not
+            move the bracket — log those on the Gameplay desk.
           </p>
           {activeMatch?.teamAId && activeMatch.teamBId && (
-            <div className="match-result">
+            <div className="dcx-result">
               <AdvanceTeam
                 tag={getTeam(bracket, activeMatch.teamAId)?.tag ?? 'BLUE'}
                 name={getTeam(bracket, activeMatch.teamAId)?.name ?? 'Blue'}
@@ -708,10 +616,10 @@ export default function ControlPage() {
                 onWin={() => {
                   bracket.reportDraftWinner('blue')
                   setDialog(null)
-                  setToast('Blue side advances.')
+                  setToast('Series winner reported — blue advances on the bracket.')
                 }}
               />
-              <span className="small-muted">vs</span>
+              <span className="dcx-muted">vs</span>
               <AdvanceTeam
                 tag={getTeam(bracket, activeMatch.teamBId)?.tag ?? 'RED'}
                 name={getTeam(bracket, activeMatch.teamBId)?.name ?? 'Red'}
@@ -719,26 +627,601 @@ export default function ControlPage() {
                 onWin={() => {
                   bracket.reportDraftWinner('red')
                   setDialog(null)
-                  setToast('Red side advances.')
+                  setToast('Series winner reported — red advances on the bracket.')
                 }}
               />
             </div>
           )}
           <div className="dialog-actions">
-            <Link className="btn" to="/control/bracket" onClick={() => setDialog(null)}>
+            <Link className="dcx-btn" to="/control/game" onClick={() => setDialog(null)}>
+              Gameplay desk
+            </Link>
+            <Link className="dcx-btn" to="/control/bracket" onClick={() => setDialog(null)}>
               Open bracket
             </Link>
-            <button className="btn primary" type="button" onClick={() => setDialog(null)}>
+            <button className="dcx-btn primary" type="button" onClick={() => setDialog(null)}>
               Done
             </button>
           </div>
         </Modal>
       )}
 
-      <div className={`toast${toast ? ' visible' : ''}`} role="status">
+      <div className={`dcx-toast${toast ? ' visible' : ''}`} role="status">
         {toast}
       </div>
     </div>
+    </StudioShell>
+  )
+}
+
+function CornerArt({ side, heroId }: { side: TeamSide; heroId: string }) {
+  const hero = getHero(heroId)
+  const src = hero ? heroSplashUrl(hero.name) : null
+  const [failed, setFailed] = useState<string | null>(null)
+  if (!src || failed === src) return null
+  return (
+    <img
+      key={src}
+      className={`dcx-art ${side}`}
+      src={src}
+      alt=""
+      draggable={false}
+      onError={() => setFailed(src)}
+    />
+  )
+}
+
+function StepButton({
+  n,
+  label,
+  active,
+  onClick,
+}: {
+  n: number
+  label: string
+  active?: boolean
+  onClick?: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`dcx-step${active ? ' active' : ''}`}
+      aria-current={active ? 'step' : undefined}
+      onClick={onClick}
+    >
+      <span className="dcx-step-n">{n}</span>
+      <span className="dcx-step-label">{label}</span>
+    </button>
+  )
+}
+
+function PhaseTimeline({
+  queue,
+  blue,
+  red,
+  target,
+  lockedLabel,
+}: {
+  queue: PickTarget[]
+  blue: TeamState
+  red: TeamState
+  target: SlotTarget | null
+  lockedLabel: string
+}) {
+  const nodes = [
+    ...[0, 1, 2, 3, 4].map((i) => ({
+      key: `b${i}`,
+      label: `Ban ${i + 1}`,
+      kind: 'ban' as const,
+      side: null as TeamSide | null,
+      done: !!blue.bans[i] && !!red.bans[i],
+      current: target?.type === 'bans' && target.index === i,
+    })),
+    ...PICK_BLOCKS.map((_, bi) => {
+      const steps = queue.filter((q) => q.blockIndex === bi)
+      const a = steps[0].orderIndex + 1
+      const z = a + steps.length - 1
+      return {
+        key: `p${bi}`,
+        label: a === z ? `Pick ${a}` : `Pick ${a}-${z}`,
+        kind: 'pick' as const,
+        side: steps[0].side as TeamSide | null,
+        done: steps.every((s) => !!(s.side === 'blue' ? blue : red).picks[s.slot]),
+        current:
+          target?.type === 'picks' &&
+          steps.some((s) => s.side === target.side && s.slot === target.index),
+      }
+    }),
+  ]
+  const currentIndex = nodes.findIndex((n) => n.current)
+  const lastDone = nodes.reduce((acc, n, i) => (n.done ? i : acc), -1)
+  const reach = currentIndex >= 0 ? currentIndex : lastDone
+  const fill = reach <= 0 ? 0 : (reach / (nodes.length - 1)) * 100
+
+  return (
+    <div className="dcx-timeline" aria-label={`Draft progress, ${lockedLabel}`}>
+      <div className="dcx-timeline-track">
+        <span className="dcx-timeline-fill" style={{ width: `${fill}%` }} />
+      </div>
+      <ol>
+        {nodes.map((n) => (
+          <li
+            key={n.key}
+            className={`${n.kind}${n.side ? ` ${n.side}` : ''}${n.done ? ' done' : ''}${n.current ? ' current' : ''}`}
+          >
+            <span className="dcx-node" />
+            <span className="dcx-node-label">{n.label}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+function TeamPanel({
+  side,
+  team,
+  first,
+  target,
+  phase,
+  onFocus,
+  onClear,
+  onEdit,
+}: {
+  side: TeamSide
+  team: TeamState
+  first: boolean
+  target: SlotTarget | null
+  phase: string
+  onFocus: (target: SlotTarget) => void
+  onClear: (type: 'picks' | 'bans', index: number) => void
+  onEdit: () => void
+}) {
+  const bansFilled = team.bans.filter(Boolean).length
+  const done = phase === 'done'
+
+  return (
+    <section className={`dcx-team ${side}`} aria-label={`${side} team`}>
+      <button className="dcx-team-head" type="button" onClick={onEdit} title="Edit team">
+        <span className="dcx-logo">
+          {team.logo ? <img src={team.logo} alt="" /> : teamTag(team, side).slice(0, 2)}
+        </span>
+        <span className="dcx-team-names">
+          <b>{teamTag(team, side)}</b>
+          <strong>{teamName(team, side)}</strong>
+        </span>
+        <span className="dcx-side-badges">
+          <span className="dcx-side-badge">{side} side</span>
+          {first && <span className="dcx-first">First pick</span>}
+        </span>
+      </button>
+
+      <div className="dcx-players">
+        {team.players.map((player, i) => {
+          const heroId = team.picks[i]
+          const hero = getHero(heroId)
+          const active = target?.side === side && target.index === i && target.type === 'picks'
+          return (
+            <div
+              key={i}
+              className={`dcx-player${heroId ? ' filled' : ''}${active ? ' active' : ''}`}
+            >
+              <button
+                type="button"
+                className="dcx-player-btn"
+                disabled={done}
+                onClick={() => onFocus({ side, index: i, type: 'picks' })}
+              >
+                <span className="dcx-slot-n">{String(i + 1).padStart(2, '0')}</span>
+                <span className="dcx-portrait">
+                  {heroId ? (
+                    <HeroImage heroId={heroId} className="dcx-fill" showNameFallback={false} />
+                  ) : (
+                    <Icon name={active ? 'swords' : 'edit'} />
+                  )}
+                </span>
+                <span className="dcx-player-copy">
+                  <b>{player.name || `Player ${i + 1}`}</b>
+                  <small>{hero ? hero.name : active ? 'Picking…' : 'Waiting…'}</small>
+                </span>
+              </button>
+              {heroId && !done && (
+                <button
+                  className="dcx-remove"
+                  type="button"
+                  aria-label={`Remove ${hero?.name ?? 'hero'}`}
+                  onClick={() => onClear('picks', i)}
+                >
+                  <Icon name="close" />
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="dcx-bans">
+        <div className="dcx-bans-label">Bans ({bansFilled}/5)</div>
+        <div className="dcx-ban-row">
+          {team.bans.map((heroId, i) => {
+            const active = target?.side === side && target.index === i && target.type === 'bans'
+            const hero = getHero(heroId)
+            return (
+              <div key={i} className={`dcx-ban${heroId ? ' filled' : ''}${active ? ' active' : ''}`}>
+                <button
+                  type="button"
+                  disabled={done}
+                  title={hero ? `${hero.name} (ban ${i + 1})` : `Ban ${i + 1}`}
+                  onClick={() => onFocus({ side, index: i, type: 'bans' })}
+                >
+                  {heroId ? (
+                    <HeroImage heroId={heroId} variant="ban" className="dcx-fill" showNameFallback={false} />
+                  ) : (
+                    <Icon name="ban" />
+                  )}
+                </button>
+                <span className="dcx-ban-who">
+                  {(team.players[i]?.name || `P${i + 1}`).split(/[,\s]+/)[0]}
+                </span>
+                {heroId && !done && (
+                  <button
+                    className="dcx-remove"
+                    type="button"
+                    aria-label={`Remove ban ${hero?.name ?? ''}`}
+                    onClick={() => onClear('bans', i)}
+                  >
+                    <Icon name="close" />
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function HeroPanel({
+  searchRef,
+  taken,
+  phase,
+  canLock,
+  lastLocked,
+  onLock,
+}: {
+  searchRef: RefObject<HTMLInputElement | null>
+  taken: Taken
+  phase: string
+  canLock: boolean
+  lastLocked: string | null
+  onLock: (heroId: string) => void
+}) {
+  const [tab, setTab] = useState<'pool' | 'quick'>('pool')
+  const [query, setQuery] = useState('')
+  const [role, setRole] = useState('All')
+  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [sortAz, setSortAz] = useState(false)
+
+  const heroes = useMemo(() => {
+    let list = searchHeroes(query).filter((h) => role === 'All' || h.role === role)
+    if (tab === 'quick') list = list.filter((h) => !taken.has(h.id))
+    if (sortAz || tab === 'quick') list = [...list].sort((a, b) => a.name.localeCompare(b.name))
+    return list
+  }, [query, role, tab, taken, sortAz])
+
+  const topPick = query.trim() ? heroes.find((h) => !taken.has(h.id)) : undefined
+  const available = HEROES.length - taken.size
+
+  return (
+    <section className="dcx-pool" aria-label="Hero pool">
+      <div className="dcx-pool-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'pool'}
+          className={tab === 'pool' ? 'active' : ''}
+          onClick={() => setTab('pool')}
+        >
+          Hero Pool
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'quick'}
+          className={tab === 'quick' ? 'active' : ''}
+          onClick={() => {
+            setTab('quick')
+            searchRef.current?.focus()
+          }}
+        >
+          Quick Pick
+        </button>
+        <span className="dcx-pool-count">
+          {heroes.length} Heroes
+          <small>{available} available</small>
+        </span>
+      </div>
+
+      <div className="dcx-pool-tools">
+        <label className="dcx-search">
+          <Icon name="search" />
+          <input
+            ref={searchRef}
+            type="search"
+            value={query}
+            placeholder={tab === 'quick' ? 'Type a hero, press Enter…' : 'Search heroes…'}
+            aria-label="Search heroes"
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && topPick && canLock) {
+                e.preventDefault()
+                onLock(topPick.id)
+                setQuery('')
+              } else if (e.key === 'Escape') {
+                setQuery('')
+              }
+            }}
+          />
+        </label>
+        <div className="dcx-roles" role="group" aria-label="Filter heroes by role">
+          {ROLES.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className={role === r.id ? 'active' : ''}
+              aria-pressed={role === r.id}
+              aria-label={r.label}
+              title={r.label}
+              onClick={() => setRole(r.id)}
+            >
+              {r.icon && <Icon name={r.icon} />}
+              <span className={r.icon ? 'dcx-role-label' : undefined}>{r.label}</span>
+            </button>
+          ))}
+        </div>
+        <div className="dcx-view" role="group" aria-label="Layout">
+          <button
+            type="button"
+            className={view === 'grid' ? 'active' : ''}
+            aria-pressed={view === 'grid'}
+            aria-label="Grid"
+            title="Grid"
+            onClick={() => setView('grid')}
+          >
+            <Icon name="grid" />
+            <span className="dcx-role-label">Grid</span>
+          </button>
+          <button
+            type="button"
+            className={view === 'list' ? 'active' : ''}
+            aria-pressed={view === 'list'}
+            aria-label="List"
+            title="List"
+            onClick={() => setView('list')}
+          >
+            <Icon name="list" />
+            <span className="dcx-role-label">List</span>
+          </button>
+        </div>
+        <button
+          type="button"
+          className={`dcx-btn icon small${sortAz ? ' on' : ''}`}
+          title={sortAz ? 'Sorted A–Z (click for release order)' : 'Sort A–Z'}
+          aria-pressed={sortAz}
+          onClick={() => setSortAz((v) => !v)}
+        >
+          <Icon name="filter" />
+        </button>
+      </div>
+
+      {topPick && (
+        <div className="dcx-quick-hint">
+          Press <kbd>Enter</kbd> to {phase === 'ban' ? 'ban' : 'lock'} <b>{topPick.name}</b>
+        </div>
+      )}
+
+      <HeroGrid
+        heroes={heroes}
+        taken={taken}
+        view={view}
+        disabled={phase === 'done' || !canLock}
+        lastLocked={lastLocked}
+        onLock={onLock}
+      />
+    </section>
+  )
+}
+
+const HeroGrid = memo(function HeroGrid({
+  heroes,
+  taken,
+  view,
+  disabled,
+  lastLocked,
+  onLock,
+}: {
+  heroes: Hero[]
+  taken: Taken
+  view: 'grid' | 'list'
+  disabled: boolean
+  lastLocked: string | null
+  onLock: (heroId: string) => void
+}) {
+  if (heroes.length === 0) {
+    return (
+      <div className="dcx-grid-wrap">
+        <div className="dcx-empty">No heroes found.</div>
+      </div>
+    )
+  }
+  return (
+    <div className="dcx-grid-wrap">
+      <div className={view === 'grid' ? 'dcx-grid' : 'dcx-list'}>
+        {heroes.map((hero) => {
+          const used = taken.get(hero.id)
+          const flash = lastLocked === hero.id
+          return (
+            <button
+              key={hero.id}
+              type="button"
+              className={`dcx-hero${flash ? ' flash' : ''}${used ? ` used ${used.side} ${used.type}` : ''}`}
+              disabled={!!used || disabled}
+              aria-label={`${hero.name}, ${hero.role}`}
+              onClick={() => onLock(hero.id)}
+            >
+              <span className="dcx-hero-art">
+                <HeroImage hero={hero} className="dcx-fill" showNameFallback={false} lazy />
+                {used && (
+                  <span className="dcx-hero-mark">
+                    <Icon name={used.type === 'bans' ? 'ban' : 'check'} />
+                  </span>
+                )}
+              </span>
+              <span className="dcx-hero-name">{hero.name}</span>
+              {view === 'list' && (
+                <span className="dcx-hero-meta">
+                  {hero.role}
+                  {used ? ` · ${used.type === 'bans' ? 'Banned' : 'Picked'} by ${used.side}` : ''}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+})
+
+function SequenceSide({
+  side,
+  team,
+  first,
+  queue,
+  target,
+  onFocus,
+}: {
+  side: TeamSide
+  team: TeamState
+  first: TeamSide
+  queue: PickTarget[]
+  target: SlotTarget | null
+  onFocus: (target: SlotTarget) => void
+}) {
+  const chips = [
+    ...team.bans.map((heroId, i) => ({
+      step: banStep(side, i, first) + 1,
+      type: 'bans' as const,
+      slot: i,
+      heroId,
+    })),
+    ...queue
+      .filter((q) => q.side === side)
+      .map((q) => ({
+        step: 11 + q.orderIndex,
+        type: 'picks' as const,
+        slot: q.slot,
+        heroId: team.picks[q.slot],
+      })),
+  ]
+
+  const badge = (
+    <div className="dcx-seq-team">
+      <span className="dcx-logo small">
+        {team.logo ? <img src={team.logo} alt="" /> : teamTag(team, side).slice(0, 2)}
+      </span>
+      <span>
+        <b>{teamTag(team, side)}</b>
+        <small>{side} side</small>
+      </span>
+    </div>
+  )
+
+  return (
+    <div className={`dcx-seq-side ${side}`}>
+      {side === 'blue' && badge}
+      <ol className="dcx-seq-chips">
+        {chips.map((c) => {
+          const current = target?.side === side && target.type === c.type && target.index === c.slot
+          return (
+            <li key={`${c.type}-${c.slot}`}>
+              <button
+                type="button"
+                className={`dcx-seq-chip ${c.type === 'bans' ? 'ban' : 'pick'}${c.heroId ? ' done' : ''}${current ? ' current' : ''}`}
+                title={`Step ${c.step}: ${c.type === 'bans' ? 'Ban' : 'Pick'} ${c.slot + 1}${c.heroId ? ` — ${getHero(c.heroId)?.name}` : ''}`}
+                onClick={() => onFocus({ side, index: c.slot, type: c.type })}
+              >
+                <span className="dcx-seq-n">{c.step}</span>
+                <span className="dcx-seq-icon">
+                  {c.heroId ? (
+                    <HeroImage
+                      heroId={c.heroId}
+                      variant={c.type === 'bans' ? 'ban' : 'portrait'}
+                      className="dcx-fill"
+                      showNameFallback={false}
+                    />
+                  ) : (
+                    <Icon name={c.type === 'bans' ? 'ban' : 'check'} />
+                  )}
+                </span>
+                <span className="dcx-seq-kind">{c.type === 'bans' ? 'Ban' : 'Pick'}</span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+      {side === 'red' && badge}
+    </div>
+  )
+}
+
+function MatchSettingsDialog({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const matchLabel = useDraftStore((s) => s.matchLabel)
+  const firstPickSide = useDraftStore((s) => s.firstPickSide)
+  const blue = useDraftStore((s) => s.blue)
+  const red = useDraftStore((s) => s.red)
+  return (
+    <Modal title="Match settings" onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          const data = new FormData(e.currentTarget)
+          const label = String(data.get('match') ?? '').trim()
+          if (!label) return
+          const draft = useDraftStore.getState()
+          draft.setMatchLabel(label)
+          draft.setFirstPickSide(data.get('first') === 'red' ? 'red' : 'blue')
+          onClose()
+          onSaved()
+        }}
+      >
+        <label className="form-field">
+          <span>Match label</span>
+          <input name="match" defaultValue={matchLabel} maxLength={42} required />
+        </label>
+        <label className="form-field">
+          <span>First pick team</span>
+          <select name="first" defaultValue={firstPickSide ?? 'blue'}>
+            <option value="blue">{teamName(blue, 'blue')}</option>
+            <option value="red">{teamName(red, 'red')}</option>
+          </select>
+        </label>
+        <div className="dialog-actions">
+          <button className="dcx-btn" type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="dcx-btn primary" type="submit">
+            Save settings
+          </button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
@@ -754,168 +1237,14 @@ function AdvanceTeam({
   onWin: () => void
 }) {
   return (
-    <div className={`result-team ${side}`}>
+    <div className={`dcx-result-team ${side}`}>
       <h3>{tag}</h3>
       <p>{name}</p>
-      <button className="btn" type="button" onClick={onWin}>
+      <button className="dcx-btn" type="button" onClick={onWin}>
         <Icon name="trophy" />
         Advance {tag}
       </button>
     </div>
-  )
-}
-
-function TeamColumn({
-  side,
-  target,
-  onFocus,
-  onClear,
-  onEdit,
-}: {
-  side: TeamSide
-  target: SlotTarget | null
-  onFocus: (target: SlotTarget) => void
-  onClear: (type: 'picks' | 'bans', index: number) => void
-  onEdit: () => void
-}) {
-  const team = useDraftStore((s) => s[side])
-  const first = useDraftStore((s) => s.firstPickSide)
-  const phase = useDraftStore((s) => s.phase)
-  const locked = team.picks.filter(Boolean).length
-
-  return (
-    <section className={`team-panel ${side}`} aria-label={`${side} team`}>
-      <div className="team-top">
-        <div className="team-heading">
-          <span className="team-side">
-            <span className="side-dot" />
-            {side} side
-          </span>
-          {first === side && <span className="first-badge">First pick</span>}
-        </div>
-        <div className="team-identity">
-          <div className="team-emblem">
-            {team.logo ? <img src={team.logo} alt="" /> : team.tag.slice(0, 2)}
-          </div>
-          <div>
-            <h2 className="team-title">{team.name}</h2>
-            <div className="team-code">{team.tag}</div>
-          </div>
-          <button className="edit-team" type="button" aria-label={`Edit ${team.name}`} onClick={onEdit}>
-            <Icon name="edit" />
-          </button>
-        </div>
-      </div>
-      <div className="team-picks">
-        {team.players.map((player, i) => {
-          const heroId = team.picks[i]
-          const active = target?.side === side && target.index === i && target.type === 'picks'
-          return (
-            <div key={player.name + i} className={`player${heroId ? '' : ' empty'}${active ? ' is-target' : ''}`}>
-              <button
-                className="player-select"
-                type="button"
-                disabled={phase === 'done'}
-                onClick={() => onFocus({ side, index: i, type: 'picks' })}
-              >
-                <span className="portrait">
-                  {heroId ? (
-                    <HeroImage heroId={heroId} className="cme-fill" showNameFallback={false} />
-                  ) : (
-                    <Icon name={active ? 'swords' : 'plus'} />
-                  )}
-                </span>
-                <span className="player-copy">
-                  <span className="player-name" style={{ display: 'block' }}>
-                    {player.name}
-                  </span>
-                  <span className="hero-name" style={{ display: 'block' }}>
-                    {heroId ? getHero(heroId)?.name : active ? 'Selecting hero…' : 'Awaiting pick'}
-                  </span>
-                </span>
-              </button>
-              <span className="slot-tag">0{i + 1}</span>
-              {heroId && phase !== 'done' && (
-                <button
-                  className="remove-pick"
-                  type="button"
-                  aria-label={`Remove ${getHero(heroId)?.name ?? 'hero'}`}
-                  onClick={() => onClear('picks', i)}
-                >
-                  <Icon name="close" />
-                </button>
-              )}
-            </div>
-          )
-        })}
-      </div>
-      <div className="bans">
-        <div className="section-label">
-          <span>Banned heroes</span>
-          <span>{team.bans.filter(Boolean).length} / 5</span>
-        </div>
-        <div className="ban-list">
-          {team.bans.map((heroId, i) => {
-            const active = target?.side === side && target.index === i && target.type === 'bans'
-            return (
-              <button
-                key={i}
-                type="button"
-                className={`ban-slot${heroId ? ' filled' : ''}${active ? ' active' : ''}`}
-                disabled={phase === 'done'}
-                onClick={() => onFocus({ side, index: i, type: 'bans' })}
-              >
-                {heroId ? (
-                  <HeroImage heroId={heroId} variant="ban" className="cme-fill" showNameFallback={false} />
-                ) : (
-                  <Icon name="ban" />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-      <div className="team-footer">
-        <span>
-          <strong>{locked}</strong> of 5 heroes locked
-        </span>
-        <span>{phase === 'done' ? 'Draft complete' : 'Roster ready'}</span>
-      </div>
-    </section>
-  )
-}
-
-function PickSequence() {
-  const first = useDraftStore((s) => s.firstPickSide ?? 'blue')
-  const blue = useDraftStore((s) => s.blue)
-  const red = useDraftStore((s) => s.red)
-  const phase = useDraftStore((s) => s.phase)
-  const index = useDraftStore((s) => s.pickOrderIndex ?? 0)
-  const queue = useMemo(() => buildPickQueue(first), [first])
-  let cursor = 0
-  return (
-    <>
-      {PICK_BLOCKS.map((block, bi) => {
-        const slice = queue.slice(cursor, cursor + block.count)
-        cursor += block.count
-        const side = slice[0]?.side ?? 'blue'
-        const current = phase === 'pick' && slice.some((step) => step.orderIndex === index)
-        const done = slice.every((step) => {
-          const team = step.side === 'blue' ? blue : red
-          return !!team.picks[step.slot]
-        })
-        return (
-          <div
-            key={bi}
-            className={`order-group${side === 'red' ? ' red' : ''}${done ? ' completed' : ''}${current ? ' current' : ''}`}
-          >
-            <span>{side === 'blue' ? blue.tag : red.tag}</span>
-            <b>×{block.count}</b>
-            {done && <Icon name="check" />}
-          </div>
-        )
-      })}
-    </>
   )
 }
 
@@ -932,7 +1261,7 @@ function TeamDialog({
   const updateTeam = useDraftStore((s) => s.updateTeam)
   const updatePlayer = useDraftStore((s) => s.updatePlayer)
   return (
-    <Modal title={`Edit ${team.name}`} wide onClose={onClose}>
+    <Modal title={`Edit ${teamName(team, side)}`} wide onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -966,15 +1295,20 @@ function TeamDialog({
           <input name="teamLogo" type="url" defaultValue={team.logo} placeholder="https://…" />
         </label>
         <div className="roster-caption">
-          <span>PLAYERS · IN PICK ORDER</span>
+          <span>Players · in pick order</span>
           <span>Photo URLs are optional</span>
         </div>
         {team.players.map((player, i) => (
           <div className="roster-edit-row" key={i}>
             <span>0{i + 1}</span>
-            <input name={`player${i}`} defaultValue={player.name} required maxLength={25} aria-label={`Player ${i + 1} name`} />
             <input
-              className="photo"
+              name={`player${i}`}
+              defaultValue={player.name}
+              required
+              maxLength={25}
+              aria-label={`Player ${i + 1} name`}
+            />
+            <input
               name={`photo${i}`}
               type="url"
               defaultValue={player.photo ?? ''}
@@ -984,29 +1318,15 @@ function TeamDialog({
           </div>
         ))}
         <div className="dialog-actions">
-          <button className="btn" type="button" onClick={onClose}>
+          <button className="dcx-btn" type="button" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn primary" type="submit">
+          <button className="dcx-btn primary" type="submit">
             Save team
           </button>
         </div>
       </form>
     </Modal>
-  )
-}
-
-function MatchTimerDefaultInput() {
-  const timerSeconds = useDraftStore((s) => s.timerSeconds)
-  return (
-    <input
-      name="duration"
-      type="number"
-      min={5}
-      max={300}
-      defaultValue={timerSeconds || 30}
-      required
-    />
   )
 }
 
@@ -1029,7 +1349,7 @@ function Modal({
   return (
     <dialog
       ref={ref}
-      style={wide ? { width: 'min(700px, calc(100vw - 28px))' } : undefined}
+      className={`dcx-dialog${wide ? ' wide' : ''}`}
       onClose={onClose}
       onClick={(e) => {
         if (e.target === ref.current) {
@@ -1039,7 +1359,12 @@ function Modal({
     >
       <div className="dialog-head">
         <h2>{title}</h2>
-        <button className="btn ghost square" type="button" aria-label="Close dialog" onClick={() => ref.current?.close()}>
+        <button
+          className="dcx-btn icon"
+          type="button"
+          aria-label="Close dialog"
+          onClick={() => ref.current?.close()}
+        >
           <Icon name="close" />
         </button>
       </div>

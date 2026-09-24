@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { fetchSync, pushSync, subscribeSync } from '../lib/obsSync'
 
 export type StingerStyle = 'wipe' | 'slam' | 'split'
 
@@ -33,7 +32,13 @@ let applyingRemote = false
 
 function push(state: StingerState) {
   if (applyingRemote) return
-  pushSync('stinger', state)
+  void fetch('/api/sync/stinger', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(state),
+  }).catch(() => {
+    /* ignore */
+  })
 }
 
 export const useStingerStore = create<StingerStore>((set, get) => ({
@@ -67,19 +72,33 @@ export const useStingerStore = create<StingerStore>((set, get) => ({
   },
 }))
 
-let stingerSyncStarted = false
-
-function applyStingerRemote(payload: unknown) {
-  if (!payload || typeof payload !== 'object') return
-  useStingerStore.getState().hydrate(payload as StingerState)
-}
-
 export function initStingerSync() {
-  if (stingerSyncStarted) return
-  stingerSyncStarted = true
+  void fetch('/api/sync/stinger')
+    .then((r) => r.json())
+    .then((payload) => {
+      if (payload && typeof payload === 'object') {
+        useStingerStore.getState().hydrate(payload as StingerState)
+      }
+    })
+    .catch(() => {
+      /* ignore */
+    })
 
-  subscribeSync('stinger', applyStingerRemote)
-  void fetchSync('stinger').then(applyStingerRemote)
+  try {
+    const es = new EventSource('/api/sync/stinger/stream')
+    es.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as StingerState
+        if (payload && typeof payload === 'object') {
+          useStingerStore.getState().hydrate(payload)
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 export { DURATION_MS }

@@ -1,14 +1,30 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Brand, Icon } from '../components/cme/Icon'
-import ControlNav from '../components/ControlNav'
+import StudioShell from '../components/cme/StudioShell'
+import {
+  openGameplayViewerWindow,
+} from '../lib/gameplayCapture'
+import { absoluteUrl, useLanOrigins } from '../lib/lanOrigins'
 import { initCasterSync, useCasterStore } from '../store/casterStore'
+import { initCamsSync, useCamsStore } from '../store/camsStore'
+import GameplayCastControls from '../components/gameplay/GameplayCastControls'
+import '../styles/gameplay-preview.css'
+
+type CasterTab = 'desk' | 'preview'
 
 export default function CasterControlPage() {
   const showTitle = useCasterStore((s) => s.showTitle)
   const setShowTitle = useCasterStore((s) => s.setShowTitle)
+  const [params, setParams] = useSearchParams()
+  const tab: CasterTab = params.get('tab') === 'preview' ? 'preview' : 'desk'
+  const gameplayLive = useCamsStore((s) => s.gameplayLive)
+  const [copied, setCopied] = useState('')
+  const origins = useLanOrigins()
 
   useEffect(() => {
     initCasterSync()
+    initCamsSync()
     document.documentElement.style.background = '#0b0e15'
     document.body.style.background = '#0b0e15'
     document.documentElement.style.overflowY = 'auto'
@@ -21,30 +37,68 @@ export default function CasterControlPage() {
     }
   }, [])
 
-  const obsOrigin = useMemo(() => {
-    if (typeof window === 'undefined') return 'http://localhost:5173'
-    const host = window.location.hostname
-    if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:5173'
-    return `http://${host}:5173`
-  }, [])
+  const previewUrl = absoluteUrl(origins.local, '/overlay/caster?preview=1&v=desk7')
+  const obsUrl = absoluteUrl(origins.local, '/overlay/caster?v=desk7')
+  const obsLanUrl = origins.lan
+    ? absoluteUrl(origins.lan, '/overlay/caster?v=desk7')
+    : null
+  const watchLocal = absoluteUrl(origins.local, '/watch/gameplay')
+  const watchLan = origins.lan
+    ? absoluteUrl(origins.lan, '/watch/gameplay')
+    : null
 
-  const previewUrl = `${obsOrigin}/overlay/caster?preview=1`
-  const obsUrl = `${obsOrigin}/overlay/caster`
+  function setTab(next: CasterTab) {
+    const nextParams = new URLSearchParams(params)
+    if (next === 'preview') nextParams.set('tab', 'preview')
+    else nextParams.delete('tab')
+    setParams(nextParams, { replace: true })
+  }
+
+  function copyWatch(url: string, key: string) {
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopied(key)
+      window.setTimeout(() => setCopied(''), 1600)
+    })
+  }
 
   return (
+    <StudioShell
+      crumb={
+        <>
+          <Link to="/control/tournament">Workspace</Link>
+          <span>/</span>
+          <span>Shoutcasters</span>
+        </>
+      }
+      note={
+        <>
+          <span className="dot" />
+          Overlay linked
+        </>
+      }
+    >
     <div className="cme-gc">
       <header className="topbar">
         <Brand />
-        <ControlNav />
         <div className="connection connected">Overlay linked</div>
       </header>
 
       <main className="workspace">
         <div className="heading">
           <div>
-            <div className="eyebrow">Talent · lower third</div>
+            <div className="eyebrow">
+              {tab === 'preview' ? 'Talent · live game feed' : 'Talent · desk scene'}
+            </div>
             <h1>
-              Shoutcasters<span>.</span>
+              {tab === 'preview' ? (
+                <>
+                  Gameplay Preview<span>.</span>
+                </>
+              ) : (
+                <>
+                  Shoutcasters<span>.</span>
+                </>
+              )}
             </h1>
           </div>
           <div className="actions">
@@ -59,18 +113,23 @@ export default function CasterControlPage() {
           </div>
         </div>
 
+        {tab === 'desk' ? (
         <section className="surface" style={{ marginBottom: 20 }}>
           <div className="surface-head">
             <h3>OBS Browser Source</h3>
           </div>
           <div className="display-body">
             <p className="display-note" style={{ marginTop: 0 }}>
-              Lower-third name cards only · 1920×1080 · keep background transparent in OBS.
+              Full desk scene · 1920×1080 · camera hole is transparent. Put the webcam source
+              under this browser source in OBS.
             </p>
+            <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'var(--muted)', marginTop: 10 }}>
+              LOCALHOST · THIS PC / OBS
+            </div>
             <code
               style={{
                 display: 'block',
-                marginTop: 10,
+                marginTop: 4,
                 padding: '10px 12px',
                 borderRadius: 6,
                 background: '#0e1623',
@@ -82,9 +141,128 @@ export default function CasterControlPage() {
             >
               {obsUrl}
             </code>
+            {obsLanUrl ? (
+              <>
+                <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'var(--muted)', marginTop: 10 }}>
+                  LAN IP · LAPTOP
+                </div>
+                <code
+                  style={{
+                    display: 'block',
+                    marginTop: 4,
+                    padding: '10px 12px',
+                    borderRadius: 6,
+                    background: '#0e1623',
+                    border: '1px solid var(--line)',
+                    color: '#7ddea8',
+                    fontSize: 13,
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {obsLanUrl}
+                </code>
+              </>
+            ) : null}
           </div>
         </section>
+        ) : null}
 
+        <div className="tabs" role="tablist">
+          <button
+            className={`tab${tab === 'desk' ? ' active' : ''}`}
+            type="button"
+            onClick={() => setTab('desk')}
+          >
+            <Icon name="spark" />
+            Desk
+          </button>
+          <button
+            className={`tab${tab === 'preview' ? ' active' : ''}`}
+            type="button"
+            onClick={() => setTab('preview')}
+          >
+            <Icon name="monitor" />
+            Gameplay Preview
+            {gameplayLive ? <span className="tab-count">LIVE</span> : null}
+          </button>
+        </div>
+
+        {tab === 'preview' ? (
+          <section className="tab-panel gpv-desk">
+            <div className="section-heading">
+              <div>
+                <h2>Gameplay preview</h2>
+                <p>
+                  Cast the game window on <b>localhost</b> (this PC) or HTTPS
+                  Wi‑Fi. Shoutcaster laptops open the <b>LAN IP</b> watch link —
+                  they do not Select window.
+                </p>
+              </div>
+              <div className="gpv-actions">
+                <button className="btn gold" type="button" onClick={openGameplayViewerWindow}>
+                  <Icon name="expand" />
+                  Open Windows viewer
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => copyWatch(watchLocal, 'watch-local')}
+                >
+                  <Icon name="link" />
+                  {copied === 'watch-local' ? 'Copied' : 'Copy localhost'}
+                </button>
+                {watchLan ? (
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => copyWatch(watchLan, 'watch-lan')}
+                  >
+                    <Icon name="link" />
+                    {copied === 'watch-lan' ? 'Copied' : 'Copy LAN IP'}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <div className="surface">
+              <div className="display-body">
+                <GameplayCastControls />
+              </div>
+            </div>
+            <div className="surface">
+              <div className="surface-head">
+                <h3>Share with shoutcaster PCs</h3>
+                <span className={`connection${gameplayLive ? ' connected' : ''}`}>
+                  {gameplayLive ? 'Window connected' : 'Waiting for window'}
+                </span>
+              </div>
+              <div className="display-body">
+                <p className="display-note" style={{ marginTop: 0 }}>
+                  On the laptop use the <b>LAN IP</b> watch link (same Wi‑Fi). Do
+                  not use Select window on the laptop — that only works on the
+                  operator PC via localhost. Press F11 for fullscreen. Keep the
+                  selected window cast running on the operator PC.
+                </p>
+                <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'var(--muted)', marginTop: 8 }}>
+                  LOCALHOST
+                </div>
+                <code className="gpv-link">{watchLocal}</code>
+                {watchLan ? (
+                  <>
+                    <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'var(--muted)', marginTop: 10 }}>
+                      LAN IP · LAPTOP
+                    </div>
+                    <code className="gpv-link" style={{ color: '#7ddea8' }}>
+                      {watchLan}
+                    </code>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {tab === 'desk' ? (
+        <>
         <div className="display-grid">
           <div className="surface">
             <div className="surface-head">
@@ -92,15 +270,17 @@ export default function CasterControlPage() {
             </div>
             <div className="display-body">
               <label className="field">
-                <span>Eyebrow above name cards · optional</span>
+                <span>Podium headline when no caster names are set</span>
                 <input
                   maxLength={40}
-                  placeholder="SHOUTCASTERS"
+                  placeholder="SHOUTCASTER"
                   value={showTitle}
                   onChange={(e) => setShowTitle(e.target.value)}
                 />
               </label>
-              <p className="display-note">Leave blank to hide the title line on the overlay.</p>
+              <p className="display-note">
+                If a caster name is entered, the podium shows the name instead of this title.
+              </p>
             </div>
           </div>
 
@@ -142,13 +322,16 @@ export default function CasterControlPage() {
         </section>
 
         <footer className="footer">
-          <span>Shoutcaster lower third · changes sync to the overlay</span>
+          <span>Shoutcaster desk · names and roles sync live</span>
           <span>
             Also listed under <b>Scenes</b>.
           </span>
         </footer>
+        </>
+        ) : null}
       </main>
     </div>
+    </StudioShell>
   )
 }
 

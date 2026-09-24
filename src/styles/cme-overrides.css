@@ -1,21 +1,25 @@
 .cme-draft,
 .cme-gc,
-.cme-br {
+.cme-br,
+.cme-tm {
   min-height: 100vh;
   overflow: visible;
-  padding-bottom: 48px;
+  padding-bottom: 24px;
 }
 
 /* Control desks must scroll — overlays keep their own overflow:hidden */
 html:has(.cme-gc),
 html:has(.cme-draft),
 html:has(.cme-br),
+html:has(.cme-tm),
 body:has(.cme-gc),
 body:has(.cme-draft),
 body:has(.cme-br),
+body:has(.cme-tm),
 #root:has(.cme-gc),
 #root:has(.cme-draft),
-#root:has(.cme-br) {
+#root:has(.cme-br),
+#root:has(.cme-tm) {
   height: auto !important;
   min-height: 100%;
   overflow-x: hidden;
@@ -106,46 +110,6 @@ body:has(.cme-br),
   position: relative;
 }
 
-/* Lock-in burst when a hero lands in a pick / ban slot */
-.cme-bo .player-card.just-locked {
-  border-color: #e8bf72;
-  box-shadow:
-    0 0 0 1px #e8bf7288,
-    0 0 28px #e8bf7244;
-}
-
-.cme-bo .player-card.just-locked .hero-frame {
-  overflow: hidden;
-}
-
-.cme-bo .ban-slot.just-locked {
-  box-shadow:
-    0 0 0 1px #ff718a99,
-    0 0 18px #ff718a55;
-}
-
-.cme-bo .ban-slot .animate-ban-slam,
-.cme-bo .ban-slot .animate-ban-slam .cme-fill,
-.cme-bo .hero-frame .animate-lock-in,
-.cme-bo .hero-frame .animate-lock-in .cme-fill {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.cme-bo .hero-frame > .cme-fill {
-  position: absolute;
-  inset: 0;
-}
-
-.cme-bo .pick-check.pop {
-  animation: pick-check-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
-  border-color: #e8bf72;
-  color: #ffe3a9;
-  background: #1a1408cc;
-}
-
 .cme-go .crest.institution-crest {
   width: 72px;
   height: 72px;
@@ -206,7 +170,7 @@ body:has(.cme-br),
   display: none !important;
 }
 
-/* ZSCMST · CME (center) · Commandant (right) — gameplay + broadcast seals */
+/* ZSCMST · CME (center) · Young Sailors Club (right) — gameplay + broadcast seals */
 .institution-logos {
   display: flex;
   align-items: center;
@@ -252,6 +216,51 @@ body:has(.cme-br),
 
 .institution-logos .seal-left {
   border-color: rgba(180, 200, 230, 0.4);
+}
+
+.institution-logos.with-labels {
+  gap: 22px;
+  align-items: flex-end;
+}
+
+.institution-logos.with-labels .institution-seal {
+  flex-direction: column;
+  border-radius: 18px;
+  width: auto !important;
+  height: auto !important;
+  padding: 10px 12px 8px;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(18, 40, 72, 0.12);
+  box-shadow: 0 10px 28px rgba(12, 24, 48, 0.12);
+}
+
+.institution-logos.with-labels .institution-seal img {
+  width: 72px;
+  height: 72px;
+}
+
+.institution-logos.with-labels .seal-center img {
+  width: 92px;
+  height: 92px;
+}
+
+.institution-logos.with-labels .institution-label {
+  font-family: 'Oswald', 'Exo 2', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #1a2a44;
+  text-align: center;
+  max-width: 110px;
+  line-height: 1.2;
+}
+
+.institution-logos.with-labels .seal-center .institution-label {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: #0d3a6e;
 }
 
 /* Base sizes — CME (center) is always largest */
@@ -321,31 +330,21 @@ body:has(.cme-br),
   height: 48px;
 }
 
-/* Draft / broadcast center column — logos + label stacked at top */
+/* Draft / broadcast center column */
 .cme-bo .broadcast-institutions {
-  position: absolute;
-  top: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  margin: 0;
-  gap: 12px;
-  z-index: 1;
+  margin: 0 auto 12px;
+  gap: 16px;
 }
 
 .cme-bo .broadcast-institutions .seal-left,
 .cme-bo .broadcast-institutions .seal-right {
-  width: 56px;
-  height: 56px;
-}
-
-.cme-bo .broadcast-institutions .seal-center {
   width: 72px;
   height: 72px;
 }
 
-/* Sit below institution seals (was top:4px and overlapped logos) */
-.cme-bo .tournament-label {
-  top: 82px;
+.cme-bo .broadcast-institutions .seal-center {
+  width: 96px;
+  height: 96px;
 }
 
 
@@ -387,410 +386,11 @@ body:has(.cme-br),
 
 .cme-br .flex-board .match-card {
   width: 250px;
-  height: 150px;
+  height: 168px;
 }
 
-/* —— Bottom overlay: wider square cams on top, slim carousel below —— */
-.cme-go .bottom-feed-bar {
-  position: absolute;
-  left: 28px;
-  right: 28px;
-  bottom: 10px;
-  z-index: 28;
-  pointer-events: none;
-  height: auto;
-  min-height: 0;
-}
-
-.cme-go .bottom-feed-glow {
-  display: none;
-}
-
-.cme-go .bottom-feed-frame {
-  position: relative;
-  height: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: stretch;
-  padding: 0;
-  border-radius: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  overflow: visible;
-}
-
-.cme-go .bottom-feed-frame:before {
-  display: none;
-}
-
-.cme-go .bottom-feed-cams {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 24px;
-  width: 100%;
-}
-
-.cme-go .bottom-feed-panel {
-  --accent: var(--blue);
-  --panel-border: #4261818c;
-  width: 268px;
-  max-width: 268px;
-  min-width: 268px;
-  display: flex;
-  flex-direction: column;
-  border-radius: 8px;
-  border: 1px solid var(--panel-border);
-  overflow: hidden;
-  background: linear-gradient(165deg, #152b46f0, #0d1522f5);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
-  z-index: 2;
-  flex-shrink: 0;
-}
-
-.cme-go .bottom-feed-panel.red {
-  --accent: var(--red);
-  --panel-border: #8652668c;
-  border-radius: 8px;
-  background: linear-gradient(195deg, #35202ff0, #14101af5);
-}
-
-.cme-go .bottom-feed-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 28px;
-  padding: 4px 8px;
-  border-bottom: 1px solid rgba(100, 120, 150, 0.28);
-  background: rgba(8, 14, 24, 0.72);
-  position: relative;
-}
-
-.cme-go .bottom-feed-head:before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--accent);
-}
-
-.cme-go .bottom-feed-panel.red .bottom-feed-head {
-  flex-direction: row-reverse;
-  text-align: right;
-}
-
-.cme-go .bottom-feed-crest {
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid rgba(232, 191, 114, 0.4);
-  background: #0a1018;
-  color: var(--gold);
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-
-.cme-go .bottom-feed-crest img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.cme-go .bottom-feed-identity {
-  min-width: 0;
-  flex: 1;
-}
-
-.cme-go .bottom-feed-name {
-  font-size: 11px;
-  font-weight: 750;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.1;
-}
-
-.cme-go .bottom-feed-meta {
-  margin-top: 1px;
-  font-size: 7px;
-  letter-spacing: 0.12em;
-  color: #9cc4ef;
-  font-weight: 650;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cme-go .bottom-feed-panel.red .bottom-feed-meta {
-  color: #e5b2c0;
-}
-
-.cme-go .bottom-feed-slot {
-  flex-shrink: 0;
-  font-size: 9px;
-  font-weight: 750;
-  letter-spacing: 0.1em;
-  color: var(--accent);
-  opacity: 0.9;
-}
-
-/* Slightly wider square video window */
-.cme-go .bottom-feed-window {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  flex: 0 0 auto;
-  height: auto;
-  min-height: 0;
-  background: #070b12;
-  overflow: hidden;
-}
-
-.cme-go .bottom-feed-window video,
-.cme-go .bottom-feed-window .team-cam-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 28%;
-}
-
-.cme-go .bottom-feed-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  min-height: 20px;
-  padding: 0 8px;
-  border-top: 1px solid rgba(100, 120, 150, 0.28);
-  background: linear-gradient(90deg, #17375a, #1b2c43);
-  color: #bdd5ee;
-  font-size: 8px;
-  font-weight: 650;
-  letter-spacing: 0.1em;
-}
-
-.cme-go .bottom-feed-panel.red .bottom-feed-foot {
-  flex-direction: row-reverse;
-  background: linear-gradient(90deg, #302237, #4f263a);
-  color: #e9bfce;
-}
-
-.cme-go .bottom-feed-player {
-  max-width: 55%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #90a6c2;
-  letter-spacing: 0.06em;
-}
-
-.cme-go .bottom-feed-panel.red .bottom-feed-player {
-  color: #b28ea7;
-}
-
-/* Carousel under cams — no chrome / no background box */
-.cme-go .bottom-feed-center {
-  position: relative;
-  width: 100%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  height: auto;
-  min-height: 28px;
-  padding: 0 8px;
-  z-index: 1;
-  overflow: visible;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-}
-
-.cme-go .bottom-feed-center-inner {
-  display: contents;
-}
-
-.cme-go .bottom-feed-center-label {
-  text-align: center;
-  font-size: 7px;
-  font-weight: 750;
-  letter-spacing: 0.2em;
-  color: var(--gold);
-  text-transform: uppercase;
-  line-height: 1;
-  flex-shrink: 0;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
-}
-
-.cme-go .feed-bridge {
-  display: none;
-}
-
-.cme-go .inst-carousel {
-  position: relative;
-  width: min(720px, 100%);
-  height: 22px;
-  min-height: 22px;
-  overflow: hidden;
-  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-}
-
-.cme-go .inst-carousel-track {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: max-content;
-  height: 100%;
-  animation: inst-carousel-scroll 26s linear infinite;
-  will-change: transform;
-}
-
-.cme-go .inst-carousel-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  padding: 0 2px;
-}
-
-.cme-go .inst-carousel-seal {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid rgba(232, 191, 114, 0.45);
-  background: rgba(8, 12, 20, 0.75);
-  flex-shrink: 0;
-}
-
-.cme-go .inst-carousel-seal.seal-center {
-  width: 20px;
-  height: 20px;
-  border-color: rgba(232, 191, 114, 0.75);
-}
-
-.cme-go .inst-carousel-seal img {
-  width: 86%;
-  height: 86%;
-  object-fit: contain;
-}
-
-.cme-go .inst-carousel-name {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #e8eef8;
-  white-space: nowrap;
-  max-width: 140px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-}
-
-@keyframes inst-carousel-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-33.333%);
-  }
-}
-
-.cme-go.hide-cameras .bottom-feed-panel {
-  visibility: hidden;
-  width: 0;
-  max-width: 0;
-  border: none;
-  overflow: hidden;
-}
-
-.cme-go.hide-cameras .bottom-feed-cams {
-  display: none;
-}
-
-.cme-go.hide-cameras .bottom-feed-frame {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.cme-go.hide-cameras .bottom-feed-bar {
-  height: auto;
-  min-height: 36px;
-}
-
-.cme-go.hide-cameras .bottom-feed-center {
-  grid-column: auto;
-  height: auto;
-}
-
-.cme-go.hide-cameras .feed-bridge {
-  display: none;
-}
-
-.cme-go .bottom-feed-panel.red .team-cam-waiting {
-  background: linear-gradient(220deg, #2b2034, #151725);
-}
-
-/* TeamCamFeed — works inside camera-window / featured frames */
-.team-cam-feed-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0;
-  transition: none;
-}
-
-.team-cam-feed-video.is-live {
-  opacity: 1;
-}
-
-.team-cam-waiting {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  background: linear-gradient(160deg, #172539, #0e1725);
-  color: #6e86a1;
-}
-
-.team-cam-waiting svg {
-  width: 16px;
-  height: 16px;
-  opacity: 0.45;
-}
-
-.team-cam-waiting-label {
-  font-size: 8px;
-  font-weight: 650;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.team-cam-waiting-note {
-  font-size: 7px;
-  color: #586d88;
+.cme-br .flex-board .match-card.gf {
+  height: 178px;
 }
 
 .cme-go .caster-feed {
@@ -1024,14 +624,23 @@ body:has(.cme-br),
   display: block;
 }
 
-/* Centered bracket match modal — pick winner (no score entry) */
-.cme-br dialog {
+/* Center all control-desk dialogs in the viewport */
+.cme-draft dialog,
+.cme-gc dialog,
+.cme-br dialog,
+.cme-tm dialog,
+.studio-shell dialog {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  margin: 0;
+  inset: 0;
+  margin: auto;
+  transform: none;
+  height: fit-content;
   max-height: min(90vh, 720px);
+  z-index: 100;
+}
+
+/* Bracket match modal — pick winner (no score entry) */
+.cme-br dialog {
   width: min(560px, calc(100vw - 32px));
   border: 1px solid #2b3444;
   border-radius: 14px;
@@ -1134,32 +743,119 @@ body:has(.cme-br),
   text-transform: uppercase;
 }
 
-/* Opening-round drag swap */
+/* Opening-round drag swap — keep header/teams/footer from clipping */
 .cme-br .match-card {
   display: flex;
   flex-direction: column;
+  height: 168px;
+  overflow: hidden;
 }
 
-.cme-br .match-card-hit {
-  display: flex;
+.cme-br .match-card.gf {
+  height: 178px;
+}
+
+.cme-br .match-card > .match-card-hit:first-child {
+  flex: 0 0 32px;
+  height: 32px;
+  min-height: 32px;
+  max-height: 32px;
+  display: block;
   width: 100%;
   border: 0;
+  margin: 0;
+  padding: 0;
   background: transparent;
   color: inherit;
   cursor: pointer;
-  padding: 0;
   font: inherit;
+  line-height: normal;
   text-align: left;
+  overflow: hidden;
+}
+
+.cme-br .match-card.gf > .match-card-hit:first-child {
+  flex-basis: 36px;
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+}
+
+.cme-br .match-card-hit .match-topline {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.cme-br .match-team {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+  gap: 8px;
+  padding: 0 10px;
+  overflow: hidden;
+}
+
+.cme-br .match-card.gf .match-team {
+  height: auto;
 }
 
 .cme-br .match-footer.match-card-hit {
+  flex: 0 0 34px;
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
+  display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  margin: 0;
+  padding: 0 12px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: normal;
+  text-align: left;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.cme-br .match-card.gf .match-footer.match-card-hit {
+  flex-basis: 35px;
+  height: 35px;
+  min-height: 35px;
+  max-height: 35px;
+}
+
+.cme-br .match-footer-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.cme-br .match-footer-hint {
+  flex-shrink: 0;
+  font-size: 10px;
+  letter-spacing: -1.5px;
+  color: #8aa4c4;
+  line-height: 1;
+}
+
+.cme-br .match-footer.match-card-hit svg {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
 }
 
 .cme-br .match-team.draggable {
   cursor: grab;
   user-select: none;
+  position: relative;
 }
 
 .cme-br .match-team.draggable:active {
@@ -1179,6 +875,52 @@ body:has(.cme-br),
   background: rgba(104, 173, 255, 0.08);
 }
 
+.cme-br .team-grip {
+  flex-shrink: 0;
+  width: 10px;
+  font-size: 9px;
+  letter-spacing: -2px;
+  color: #6f8aac;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.cme-br .match-card.placeable .match-team.draggable:hover .team-grip {
+  color: var(--gold);
+}
+
+.cme-br .match-team .team-badge,
+.cme-br .match-team .team-name,
+.cme-br .match-team .seed-tag,
+.cme-br .match-team .match-score {
+  position: relative;
+  z-index: 1;
+}
+
+/* Guard against StudioShell .cme-tm .empty-state / legacy .empty padding */
+.cme-br .team-badge.is-pending,
+.cme-br .team-badge.empty {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  margin: 0;
+  text-align: center;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
+.cme-br .team-badge.is-pending svg,
+.cme-br .team-badge.empty svg {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  color: inherit;
+}
+
+.cme-br .pending-team {
+  letter-spacing: 0.02em;
+}
+
 /* Completed QF + SF/Final: no grab cursor, look locked */
 .cme-br .match-card.complete .match-team,
 .cme-br .match-card.waiting .match-team {
@@ -1194,4 +936,441 @@ body:has(.cme-br),
   .cme-br .winner-pick-vs {
     padding: 4px 0;
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Draft control — hero pool cards + fill utility                             */
+/* StudioShell (.cme-tm) landing-page .hero-art was bleeding onto pool tiles. */
+/* -------------------------------------------------------------------------- */
+
+.cme-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cme-fill > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Kill tournament-manager landing hero-art rules inside the draft room */
+.cme-tm .cme-draft .hero-card .hero-art,
+.cme-tm.studio-shell .cme-draft .hero-card .hero-art {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  aspect-ratio: 1 / 1;
+  display: block !important;
+  grid-template-columns: unset !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important;
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid #3a4355;
+  background: #151c2a;
+  transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
+}
+
+.cme-tm .cme-draft .hero-card {
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  min-width: 0;
+  position: relative;
+  color: #cad3e1;
+  cursor: pointer;
+}
+
+.cme-tm .cme-draft .hero-card .cme-fill {
+  position: absolute;
+  inset: 0;
+}
+
+.cme-tm .cme-draft .hero-card .hero-role {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  z-index: 2;
+  max-width: calc(100% - 28px);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #0b1018cc;
+  border: 1px solid #4a587066;
+  color: #c5d2e6;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.cme-tm .cme-draft .hero-card .hero-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 18px 6px 6px;
+  display: block;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: #f3f6fb;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: linear-gradient(180deg, transparent, #070b14f0 72%);
+  pointer-events: none;
+}
+
+.cme-tm .cme-draft .hero-card .hero-check,
+.cme-tm .cme-draft .hero-card .selected-check {
+  position: absolute;
+  right: 5px;
+  bottom: 22px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  color: #fff;
+}
+
+.cme-tm .cme-draft .hero-card .selected-check {
+  background: var(--gold, #e8bf72);
+  color: #251d10;
+  bottom: auto;
+  top: 5px;
+}
+
+.cme-tm .cme-draft .hero-card:hover:not(:disabled) .hero-art {
+  border-color: #8aa3c8;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px #0006;
+}
+
+.cme-tm .cme-draft .hero-card.selected .hero-art {
+  border: 2px solid var(--gold, #e8bf72);
+  box-shadow: 0 0 0 2px #e8bf721f;
+}
+
+.cme-tm .cme-draft .hero-card.selected .hero-caption {
+  color: var(--gold, #e8bf72);
+}
+
+.cme-tm .cme-draft .hero-card.unavailable .hero-art {
+  opacity: 0.42 !important;
+  filter: grayscale(0.85);
+}
+
+.cme-tm .cme-draft .hero-card.unavailable .hero-caption {
+  color: #8a96a8;
+}
+
+.cme-tm .cme-draft .hero-grid {
+  gap: 10px 9px;
+}
+
+/* Pick sequence — fill trailing empty space with Now / Next */
+.cme-tm .cme-draft .draft-order {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px 16px;
+}
+
+.cme-tm .cme-draft .order-track {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.cme-tm .cme-draft .draft-now-next {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.cme-tm .cme-draft .now-chip,
+.cme-tm .cme-draft .next-chip {
+  min-width: 132px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #2f3c52;
+  background: #141b28;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cme-tm .cme-draft .now-chip .now-label,
+.cme-tm .cme-draft .next-chip .now-label {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7f8fa8;
+  font-weight: 650;
+}
+
+.cme-tm .cme-draft .now-chip strong,
+.cme-tm .cme-draft .next-chip strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e8eef8;
+  white-space: nowrap;
+}
+
+.cme-tm .cme-draft .now-chip.blue {
+  border-color: #3d6aa0;
+  background: linear-gradient(160deg, #1a3354, #121a28);
+}
+
+.cme-tm .cme-draft .now-chip.blue strong {
+  color: #8ec2ff;
+}
+
+.cme-tm .cme-draft .now-chip.red,
+.cme-tm .cme-draft .next-chip.red {
+  border-color: #8a4558;
+  background: linear-gradient(160deg, #3a1f2c, #18141c);
+}
+
+.cme-tm .cme-draft .now-chip.red strong,
+.cme-tm .cme-draft .next-chip.red strong {
+  color: #ff9aab;
+}
+
+.cme-tm .cme-draft .next-chip.blue {
+  border-color: #3d6aa0;
+  background: linear-gradient(160deg, #1a3354, #121a28);
+}
+
+.cme-tm .cme-draft .next-chip.blue strong {
+  color: #8ec2ff;
+}
+
+@media (max-width: 1100px) {
+  .cme-tm .cme-draft .draft-order {
+    grid-template-columns: 1fr;
+  }
+
+  .cme-tm .cme-draft .draft-now-next {
+    width: 100%;
+  }
+
+  .cme-tm .cme-draft .now-chip,
+  .cme-tm .cme-draft .next-chip {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Broadcast draft overlay — refreshed center / sequence look                 */
+/* -------------------------------------------------------------------------- */
+
+.cme-bo .center-panel {
+  background:
+    linear-gradient(180deg, #2a3348ee 0%, #101826f5 42%, #0a101bf8 100%);
+  border: 1px solid #5d6f8c55;
+  border-top: 3px solid transparent;
+  border-image: linear-gradient(90deg, #68adff, #e8bf72 50%, #ff718a) 1;
+  border-radius: 0;
+  box-shadow:
+    0 12px 40px #000a,
+    inset 0 1px 0 #ffffff14;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+.cme-bo .tournament-label {
+  color: #f0d49a;
+  letter-spacing: 0.28em;
+}
+
+.cme-bo .match-line {
+  background: linear-gradient(90deg, #68adff18, #e8bf7214, #ff718a18);
+  border-bottom-color: #6a748855;
+  letter-spacing: 0.16em;
+}
+
+.cme-bo .current-turn {
+  gap: 10px;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+}
+
+.cme-bo .clock-digits {
+  font-size: 84px;
+  background: linear-gradient(180deg, #ffffff, #b8c7de);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 4px 18px #6ea4ff22);
+}
+
+.cme-bo .status-center {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  min-width: 120px;
+}
+
+.cme-bo .status-digits {
+  font-size: 42px;
+  font-weight: 750;
+  line-height: 1.05;
+  letter-spacing: 0.08em;
+  background: linear-gradient(180deg, #ffffff, #b8c7de);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 4px 18px #6ea4ff22);
+}
+
+.cme-bo .status-center small {
+  font-size: 9px;
+  color: #7e92b0;
+  letter-spacing: 0.18em;
+  font-weight: 550;
+  margin-top: 6px;
+}
+
+.cme-bo .timer-row.no-clock {
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.cme-bo .countdown-track {
+  display: none;
+}
+
+.cme-bo .sequence {
+  gap: 6px;
+  margin-top: 12px;
+  padding: 6px;
+  border-radius: 8px;
+  background: #0a1220cc;
+  border: 1px solid #2d3d5580;
+}
+
+.cme-bo .sequence-step {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  padding: 7px 4px;
+  border-radius: 5px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #1a3354, #122038);
+  border-color: #4a7ab888;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  line-height: 1.15;
+}
+
+.cme-bo .sequence-step b {
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+}
+
+.cme-bo .sequence-step small {
+  font-size: 10px;
+  opacity: 0.85;
+  font-weight: 600;
+}
+
+.cme-bo .sequence-step.red {
+  background: linear-gradient(180deg, #3a1f2c, #24151e);
+  border-color: #91506688;
+}
+
+.cme-bo .sequence-step.current {
+  background: linear-gradient(180deg, #4a3a1f, #2a2414);
+  border-color: var(--gold);
+  color: #ffe7b0;
+  box-shadow: 0 0 0 1px #e8bf7244, 0 0 16px #e8bf7222;
+}
+
+.cme-bo .sequence-label {
+  margin-top: 8px;
+  letter-spacing: 0.22em;
+  color: #8a9bb4;
+}
+
+/* Double-pick block: hero stays secret until both locks land */
+.cme-bo .player-card.pick-hidden .hero-frame {
+  background: linear-gradient(160deg, #2a2418, #121722 80%);
+}
+
+.cme-bo .player-card.pick-hidden .hero-display-name {
+  color: var(--gold, #e8bf72);
+  letter-spacing: 0.14em;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.cme-bo .player-card.pick-hidden .turn-label-card {
+  background: #e8bf72;
+  color: #1a1408;
+}
+
+/* Hide draft turn timer UI if any leftover styles remain */
+.cme-tm .cme-draft .timer-readout span,
+.cme-bo .clock,
+.cme-bo .clock-digits,
+.cme-bo .countdown-track,
+.cme-bo .countdown-fill {
+  display: none !important;
+}
+
+.cme-bo .status-center,
+.cme-bo .status-digits {
+  display: flex;
+}
+
+.cme-bo .status-digits {
+  display: block;
+}
+
+.cme-tm .editor-player {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1.1fr) minmax(0, 0.9fr) 110px auto;
+  gap: 10px;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .cme-tm .editor-player {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+}
+
+.cme-gc .match-result-panel {
+  margin: 0 0 18px;
 }

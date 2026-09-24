@@ -1,0 +1,905 @@
+/* —— SEA Games / Sibol card roster — remastered to match Stage 1 + loop animations —— */
+.cme-reveal .scene.scene-cards {
+  --sg-blue: #3d8bff;
+  --sg-blue-hi: #9fd0ff;
+  --sg-blue-deep: #0a2f86;
+  --sg-gold: #f2c14e;
+  --sg-gold-hi: #ffe6a8;
+  --sg-red: #e02845;
+  background: #cfe3ff;
+  color: #f4f6fa;
+  font-family: Oswald, Rajdhani, ui-sans-serif, system-ui, sans-serif;
+}
+
+.cme-reveal .scene-cards .sg-bg,
+.cme-reveal .scene-cards .sg-sun,
+.cme-reveal .scene-cards .sg-grid,
+.cme-reveal .scene-cards .sg-shards,
+.cme-reveal .scene-cards .sg-embers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cme-reveal .scene-cards .sg-bg {
+  background:
+    radial-gradient(ellipse 42% 40% at 50% 18%, #ffffff 0%, rgba(255, 255, 255, 0.75) 38%, transparent 72%),
+    linear-gradient(118deg, transparent 33%, rgba(255, 255, 255, 0.55) 33.3%, transparent 34%),
+    linear-gradient(62deg, transparent 66%, rgba(255, 255, 255, 0.55) 66.3%, transparent 67%),
+    linear-gradient(165deg, #d4e7ff 0%, #eaf3ff 42%, #c4dbf8 100%);
+}
+
+.cme-reveal .scene-cards .sg-sun {
+  z-index: 1;
+}
+
+.cme-reveal .scene-cards .sg-sun-core,
+.cme-reveal .scene-cards .sg-sun-ring,
+.cme-reveal .scene-cards .sg-sun-rays {
+  position: absolute;
+  left: 50%;
+  top: 8%;
+  translate: -50% -50%;
+  border-radius: 50%;
+}
+
+.cme-reveal .scene-cards .sg-sun-core {
+  width: 9cqw;
+  height: 9cqw;
+  background: radial-gradient(circle, #fff8e0 0%, var(--sg-gold-hi) 38%, var(--sg-gold) 70%, transparent 72%);
+  box-shadow: 0 0 4cqw 1.2cqw rgba(242, 193, 78, 0.45);
+  animation: sgSunPulse 4.2s ease-in-out infinite;
+}
+
+.cme-reveal .scene-cards .sg-sun-ring {
+  width: 16cqw;
+  height: 16cqw;
+  background: conic-gradient(from 0deg, transparent, var(--sg-gold-hi), transparent 22%, transparent 40%, var(--sg-red), transparent 62%, transparent 74%, var(--sg-blue-hi), transparent 92%);
+  -webkit-mask: radial-gradient(circle, transparent 68%, #000 70%, #000 74%, transparent 76%);
+  mask: radial-gradient(circle, transparent 68%, #000 70%, #000 74%, transparent 76%);
+  animation: luSpin 8s linear infinite;
+}
+
+.cme-reveal .scene-cards .sg-sun-rays {
+  width: 54cqw;
+  height: 54cqw;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.55) 0deg 3deg, transparent 3deg 14deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.35) 28%, transparent 52%);
+  mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.35) 28%, transparent 52%);
+  animation: luSpin 70s linear infinite;
+}
+
+.cme-reveal .scene-cards .sg-grid {
+  z-index: 1;
+  opacity: 0.55;
+  background:
+    repeating-linear-gradient(118deg, transparent 0 3.2cqw, rgba(61, 139, 255, 0.14) 3.2cqw 3.28cqw),
+    repeating-linear-gradient(62deg, transparent 0 4.4cqw, rgba(61, 139, 255, 0.08) 4.4cqw 4.48cqw);
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 45%, #000 25%, transparent 85%);
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 45%, #000 25%, transparent 85%);
+  animation: sgGridDrift 14s linear infinite;
+}
+
+.cme-reveal .scene-cards .sg-panel {
+  position: absolute;
+  top: 0;
+  width: 30%;
+  height: 80%;
+  z-index: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 0 1.4cqw rgba(61, 139, 255, 0.55));
+  animation:
+    luPanelIn 0.9s cubic-bezier(0.16, 0.84, 0.22, 1) both,
+    luPanelGlow 3.8s 1s ease-in-out infinite;
+}
+
+.cme-reveal .scene-cards .sg-panel-left { left: 0; }
+.cme-reveal .scene-cards .sg-panel-right {
+  right: 0;
+  transform: scaleX(-1);
+}
+
+.cme-reveal .scene-cards .sg-panel-edge,
+.cme-reveal .scene-cards .sg-panel-body {
+  position: absolute;
+  inset: 0;
+}
+
+.cme-reveal .scene-cards .sg-panel-edge {
+  clip-path: polygon(0 0, 62% 0, 100% 100%, 0 100%);
+  background: linear-gradient(170deg, #b8dcff, #3d8bff 40%, #0e4fc0);
+}
+
+.cme-reveal .scene-cards .sg-panel-body {
+  clip-path: polygon(0 0, 59% 0, 96.5% 98.5%, 0 98.5%);
+  overflow: hidden;
+  background: linear-gradient(165deg, #0a2f86 0%, #1c66d8 55%, #6fb2ff 100%);
+}
+
+.cme-reveal .scene-cards .sg-panel-body img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 30% 15%;
+  opacity: 0.45;
+  mix-blend-mode: luminosity;
+  filter: grayscale(1) brightness(1.15) contrast(1.1);
+  animation: luKenBurns 24s ease-in-out infinite alternate;
+}
+
+.cme-reveal .scene-cards .sg-watermark {
+  position: absolute;
+  top: 40%;
+  left: 2%;
+  right: 2%;
+  z-index: 2;
+  transform: translateY(-50%);
+  text-align: center;
+  font-family: StageDisplay, 'Bebas Neue', Impact, sans-serif;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(13, 29, 58, 0.04);
+  -webkit-text-stroke: 0.09cqw rgba(13, 29, 58, 0.3);
+  background: linear-gradient(100deg, transparent 40%, rgba(61, 139, 255, 0.5) 50%, transparent 60%) 100% 0 / 300% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  pointer-events: none;
+  user-select: none;
+  animation: luOutlineShine 7s ease-in-out infinite;
+}
+
+.cme-reveal .scene-cards .sg-shards { z-index: 3; }
+.cme-reveal .scene-cards .sg-shards span {
+  position: absolute;
+  clip-path: polygon(50% 0, 100% 38%, 70% 100%, 0 70%);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(160, 205, 255, 0.55));
+  rotate: var(--rot);
+  animation: luShard 7s ease-in-out infinite;
+}
+
+.cme-reveal .scene-cards .sg-embers {
+  z-index: 3;
+  overflow: hidden;
+}
+.cme-reveal .scene-cards .sg-embers span {
+  position: absolute;
+  bottom: -2%;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0.6cqw 0.2cqw rgba(120, 185, 255, 0.9);
+  opacity: 0;
+  animation-name: luEmber;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.cme-reveal .scene-cards .sg-rail {
+  position: absolute;
+  top: 16%;
+  bottom: 16%;
+  width: 1.5cqw;
+  overflow: hidden;
+  z-index: 3;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 15%, #000 85%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 15%, #000 85%, transparent);
+}
+.cme-reveal .scene-cards .sg-rail-left { left: 0.7%; }
+.cme-reveal .scene-cards .sg-rail-right { right: 0.7%; }
+.cme-reveal .scene-cards .sg-rail-track {
+  display: flex;
+  flex-direction: column;
+  animation: sgRailUp 26s linear infinite;
+}
+.cme-reveal .scene-cards .sg-rail-right .sg-rail-track {
+  animation-direction: reverse;
+}
+.cme-reveal .scene-cards .sg-rail-track span {
+  flex: none;
+  padding: 1.5cqw 0;
+  writing-mode: vertical-rl;
+  font-size: 0.85cqw;
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  white-space: nowrap;
+  color: rgba(13, 47, 110, 0.45);
+}
+
+.cme-reveal .scene-cards .cards-header {
+  position: absolute;
+  top: 2%;
+  left: 3.2%;
+  right: 3.2%;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: 7cqw minmax(0, 1fr) 7cqw;
+  align-items: center;
+  gap: 1.4%;
+}
+
+.cme-reveal .scene-cards .cards-logo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 7cqw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(10, 47, 134, 0.92), rgba(4, 11, 36, 0.96));
+  box-shadow: 0 0 1.4cqw rgba(61, 139, 255, 0.5), inset 0 0 0 0.12cqw rgba(159, 208, 255, 0.55);
+  animation: luLogo 4.5s ease-in-out infinite;
+}
+.cme-reveal .scene-cards .cards-logo-right {
+  justify-self: end;
+  animation-delay: -2.2s;
+}
+.cme-reveal .scene-cards .sg-logo-ring {
+  position: absolute;
+  inset: -0.45cqw;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent, var(--sg-gold-hi), transparent 28%, transparent 48%, var(--sg-blue-hi), transparent 80%);
+  -webkit-mask: radial-gradient(circle, transparent 64%, #000 66%, #000 70%, transparent 72%);
+  mask: radial-gradient(circle, transparent 64%, #000 66%, #000 70%, transparent 72%);
+  animation: luSpin 5s linear infinite;
+}
+.cme-reveal .scene-cards .cards-logo-right .sg-logo-ring {
+  animation-direction: reverse;
+}
+.cme-reveal .scene-cards .cards-logo img {
+  position: relative;
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+  border-radius: 50%;
+}
+.cme-reveal .scene-cards .cards-logo-fallback {
+  position: relative;
+  font-family: 'Bebas Neue', Oswald, sans-serif;
+  font-size: 2cqw;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-align: center;
+  color: var(--sg-gold-hi);
+}
+.cme-reveal .scene-cards .cards-logo-sibol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2cqw;
+}
+.cme-reveal .scene-cards .cards-logo-sibol strong {
+  font-size: 1.8cqw;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+.cme-reveal .scene-cards .cards-logo-sibol small {
+  font-family: Oswald, sans-serif;
+  font-size: 0.48cqw;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: rgba(200, 225, 255, 0.75);
+}
+
+.cme-reveal .scene-cards .sg-head-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.cme-reveal .scene-cards .sg-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.9cqw;
+  margin: 0;
+  font-size: 0.78cqw;
+  font-weight: 700;
+  letter-spacing: 0.46em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #0d1d3a;
+}
+.cme-reveal .scene-cards .sg-eyebrow i {
+  display: block;
+  width: 4.6cqw;
+  height: 0.1cqw;
+  background: linear-gradient(90deg, transparent, var(--sg-gold));
+}
+.cme-reveal .scene-cards .sg-eyebrow i:last-child {
+  background: linear-gradient(90deg, var(--sg-gold), transparent);
+}
+.cme-reveal .scene-cards .sg-event {
+  margin: 0.25cqw 0 0;
+  font-size: 0.72cqw;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(13, 29, 58, 0.7);
+}
+.cme-reveal .scene-cards .cards-headline {
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  padding: 0 0.6cqw 0.2cqw;
+  font-family: StageScript, 'Great Vibes', cursive;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #0d1d3a;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.8);
+  animation: sgHeadline 6s ease-in-out infinite;
+}
+
+.cme-reveal .scene-cards .cards-row {
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 3.4%;
+  right: 3.4%;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(var(--card-count, 5), minmax(0, 1fr));
+  gap: 1cqw;
+  align-items: stretch;
+}
+
+.cme-reveal .scene-cards .roster-card {
+  position: relative;
+  min-width: 0;
+  height: 100%;
+  transition: opacity 0.4s, filter 0.4s;
+}
+.cme-reveal .scene-cards .roster-card.reveal-in {
+  animation: cardsRevealIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.cme-reveal .scene-cards .sg-card-float {
+  position: relative;
+  height: 100%;
+  filter: drop-shadow(0 0.9cqw 1.3cqw rgba(8, 24, 64, 0.4));
+  animation: sgFloat 5.5s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -0.9s);
+}
+.cme-reveal .scene-cards .sg-card-float::before {
+  content: '';
+  position: absolute;
+  inset: -0.55cqw;
+  background: rgba(61, 139, 255, 0.75);
+  filter: blur(1cqw);
+  opacity: 0.32;
+  animation: sgGlow 3.2s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -0.6s);
+}
+
+.cme-reveal .scene-cards .sg-card-aura {
+  position: absolute;
+  left: 50%;
+  top: 28%;
+  width: 150%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 230, 168, 0.6), rgba(242, 193, 78, 0.22) 45%, transparent 68%);
+  animation: luAura 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.cme-reveal .scene-cards .roster-card-frame {
+  position: relative;
+  height: 100%;
+  padding: 0.22cqw;
+  background: linear-gradient(170deg, #fff6d8 0%, #6fb2ff 18%, #1c66d8 48%, #f2c14e 78%, #fff6d8 100%) 0 0 / 100% 240%;
+  clip-path: polygon(1.1cqw 0, 100% 0, 100% calc(100% - 1.1cqw), calc(100% - 1.1cqw) 100%, 0 100%, 0 1.1cqw);
+  animation: sgFrameFlow 5.4s linear infinite;
+}
+.cme-reveal .scene-cards .roster-card.is-leader .roster-card-frame,
+.cme-reveal .scene-cards .roster-card.is-coach .roster-card-frame {
+  background-image: linear-gradient(170deg, #fff6d8 0%, #f2c14e 20%, #b8862f 45%, #f2c14e 70%, #fff6d8 100%);
+}
+.cme-reveal .scene-cards .roster-card.is-leader .sg-card-float::before,
+.cme-reveal .scene-cards .roster-card.is-coach .sg-card-float::before {
+  background: rgba(242, 193, 78, 0.9);
+}
+.cme-reveal .scene-cards .roster-card.is-selected:not(.is-hidden) .sg-card-float::before {
+  background: #fff;
+  opacity: 0.7;
+}
+
+.cme-reveal .scene-cards .roster-card-photo {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  clip-path: polygon(1cqw 0, 100% 0, 100% calc(100% - 1cqw), calc(100% - 1cqw) 100%, 0 100%, 0 1cqw);
+}
+.cme-reveal .scene-cards .roster-card-photo > * {
+  position: absolute;
+}
+
+.cme-reveal .scene-cards .sg-card-bg {
+  inset: 0;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 0.12cqw, transparent 0.12cqw 0.75cqw),
+    radial-gradient(ellipse 90% 55% at 50% 35%, rgba(110, 180, 255, 0.7), transparent 70%),
+    linear-gradient(180deg, #1c66d8 0%, #0a2f86 55%, #040b24 100%);
+  background-size: 2.2cqw 2.2cqw, 100% 100%, 100% 100%;
+  animation: sgBgSlide 6s linear infinite;
+}
+.cme-reveal .scene-cards .roster-card.is-leader .sg-card-bg,
+.cme-reveal .scene-cards .roster-card.is-coach .sg-card-bg {
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 0.12cqw, transparent 0.12cqw 0.75cqw),
+    radial-gradient(ellipse 90% 55% at 50% 35%, rgba(255, 214, 130, 0.6), transparent 70%),
+    linear-gradient(180deg, #2a5fc4 0%, #0f2a78 55%, #040b24 100%);
+  background-size: 2.2cqw 2.2cqw, 100% 100%, 100% 100%;
+}
+
+.cme-reveal .scene-cards .sg-card-cme {
+  inset: 8% 0 auto;
+  display: flex;
+  justify-content: center;
+  gap: 0.15cqw;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 5.6cqw;
+  line-height: 0.82;
+  filter: drop-shadow(0 0 0.5cqw rgba(61, 139, 255, 0.8));
+}
+.cme-reveal .scene-cards .sg-card-cme span {
+  color: rgba(159, 208, 255, 0.08);
+  -webkit-text-stroke: 0.07cqw rgba(200, 228, 255, 0.55);
+  animation: sgCmeGlow 2.8s ease-in-out infinite;
+}
+.cme-reveal .scene-cards .sg-card-cme span:nth-child(2) { animation-delay: -0.9s; }
+.cme-reveal .scene-cards .sg-card-cme span:nth-child(3) { animation-delay: -1.8s; }
+
+.cme-reveal .scene-cards .sg-card-mark {
+  inset: auto 0 38%;
+  text-align: center;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 4.6cqw;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: rgba(159, 208, 255, 0.05);
+  -webkit-text-stroke: 0.07cqw rgba(200, 228, 255, 0.4);
+  animation: sgCmeGlow 3.2s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -0.5s);
+}
+
+.cme-reveal .scene-cards .roster-card-photo img {
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  transform-origin: center bottom;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.cme-reveal .scene-cards .roster-card-photo img.is-empty-slot {
+  object-fit: contain;
+  object-position: center 85%;
+  background: transparent;
+  opacity: 0.92;
+  filter: drop-shadow(0 0 0.8cqw rgba(159, 208, 255, 0.6));
+}
+
+.cme-reveal .scene-cards .roster-card-fade {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 42%;
+  background: linear-gradient(transparent 0%, rgba(4, 11, 36, 0.55) 35%, rgba(3, 8, 26, 0.96) 100%);
+  pointer-events: none;
+}
+
+.cme-reveal .scene-cards .sg-card-scan {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18%;
+  background: linear-gradient(180deg, transparent, rgba(159, 208, 255, 0.22) 70%, rgba(255, 255, 255, 0.4));
+  animation: sgScan 3.8s linear infinite;
+  animation-delay: calc(var(--i, 0) * 0.45s);
+  pointer-events: none;
+}
+
+.cme-reveal .scene-cards .sg-card-shine {
+  top: -20%;
+  bottom: -20%;
+  left: -70%;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-18deg);
+  animation: sgCardShine 6s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 0.7s);
+  pointer-events: none;
+}
+
+.cme-reveal .scene-cards .sg-card-tick {
+  z-index: 3;
+  width: 1cqw;
+  height: 1cqw;
+  border: 0 solid var(--sg-blue-hi);
+  filter: drop-shadow(0 0 0.25cqw var(--sg-blue));
+}
+.cme-reveal .scene-cards .sg-card-tick.tl { top: 0.45cqw; left: 0.45cqw; border-width: 0.14cqw 0 0 0.14cqw; }
+.cme-reveal .scene-cards .sg-card-tick.tr { top: 0.45cqw; right: 0.45cqw; border-width: 0.14cqw 0.14cqw 0 0; }
+.cme-reveal .scene-cards .sg-card-tick.bl { bottom: 0.45cqw; left: 0.45cqw; border-width: 0 0 0.14cqw 0.14cqw; }
+.cme-reveal .scene-cards .sg-card-tick.br { bottom: 0.45cqw; right: 0.45cqw; border-width: 0 0.14cqw 0.14cqw 0; }
+.cme-reveal .scene-cards .roster-card.is-leader .sg-card-tick,
+.cme-reveal .scene-cards .roster-card.is-coach .sg-card-tick {
+  border-color: var(--sg-gold-hi);
+  filter: drop-shadow(0 0 0.25cqw var(--sg-gold));
+}
+
+.cme-reveal .scene-cards .sg-card-top {
+  position: absolute;
+  top: 1.1cqw;
+  left: 1.1cqw;
+  right: 0.95cqw;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cme-reveal .scene-cards .sg-card-num {
+  font-family: StageDisplay, 'Bebas Neue', Impact, sans-serif;
+  font-size: 1.9cqw;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 0.8cqw rgba(61, 139, 255, 0.95), 0 0.15cqw 0.3cqw rgba(0, 0, 0, 0.6);
+}
+.cme-reveal .scene-cards .sg-card-lane {
+  display: grid;
+  place-items: center;
+  width: 2.4cqw;
+  height: 2.4cqw;
+  color: #fff;
+  background: rgba(4, 11, 36, 0.65);
+  box-shadow: inset 0 0 0 0.1cqw rgba(159, 208, 255, 0.7), 0 0 0.8cqw rgba(61, 139, 255, 0.6);
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  animation: luIcon 3s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -0.4s);
+}
+.cme-reveal .scene-cards .sg-card-lane img {
+  width: 62%;
+  height: 62%;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+.cme-reveal .scene-cards .sg-card-lane svg {
+  width: 60%;
+  height: 60%;
+  stroke-width: 1.6;
+}
+.cme-reveal .scene-cards .roster-card.is-leader .sg-card-lane {
+  color: var(--sg-gold-hi);
+  box-shadow: inset 0 0 0 0.1cqw var(--sg-gold), 0 0 0.9cqw rgba(242, 193, 78, 0.75);
+}
+.cme-reveal .scene-cards .roster-card.is-leader .sg-card-num {
+  text-shadow: 0 0 0.8cqw rgba(242, 193, 78, 0.95), 0 0.15cqw 0.3cqw rgba(0, 0, 0, 0.6);
+}
+
+.cme-reveal .scene-cards .roster-card-meta {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 5%;
+  z-index: 3;
+  text-align: center;
+  pointer-events: none;
+}
+.cme-reveal .scene-cards .roster-card-coach {
+  display: inline-block;
+  max-width: 100%;
+  margin-bottom: 0.45cqw;
+  padding: 0.18cqw 0.7cqw;
+  overflow: hidden;
+  font-size: 0.66cqw;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #2a1d05;
+  background: linear-gradient(90deg, var(--sg-gold), var(--sg-gold-hi), var(--sg-gold));
+  clip-path: polygon(0.4cqw 0, 100% 0, calc(100% - 0.4cqw) 100%, 0 100%);
+}
+.cme-reveal .scene-cards .roster-card-coach.is-role {
+  color: #eaf4ff;
+  background: rgba(61, 139, 255, 0.35);
+  box-shadow: inset 0 0 0 0.08cqw rgba(159, 208, 255, 0.6);
+}
+.cme-reveal .scene-cards .roster-card-ign {
+  margin: 0;
+  overflow: hidden;
+  font-family: StageDisplay, 'Bebas Neue', Oswald, Impact, sans-serif;
+  font-size: clamp(12px, 1.7cqw, 34px);
+  letter-spacing: 0.03em;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cme-reveal .scene-cards .roster-card-prefix {
+  color: transparent;
+  background: linear-gradient(180deg, #fff3d0 0%, var(--sg-gold) 60%, #c9963f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.cme-reveal .scene-cards .roster-card-handle {
+  color: #fff;
+  text-shadow: 0 0 0.8cqw rgba(61, 139, 255, 0.8), 0 0.15cqw 0.4cqw rgba(0, 0, 0, 0.85);
+}
+.cme-reveal .scene-cards .roster-card-nick {
+  display: block;
+  margin-top: 0.25cqw;
+  overflow: hidden;
+  font-size: clamp(10px, 0.82cqw, 15px);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--sg-blue-hi);
+}
+.cme-reveal .scene-cards .roster-card.is-leader .roster-card-nick {
+  color: var(--sg-gold-hi);
+}
+
+.cme-reveal .scene-cards .roster-card.is-hidden .sg-card-float {
+  opacity: 0.6;
+  filter: saturate(0.55) brightness(0.8) drop-shadow(0 0.9cqw 1.3cqw rgba(8, 24, 64, 0.4));
+}
+.cme-reveal .scene-cards .roster-card.is-hidden .roster-card-handle {
+  animation: sgBlink 1.6s ease-in-out infinite;
+}
+
+.cme-reveal .scene-cards .sg-waves {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  height: 18%;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent, rgba(8, 24, 64, 0.35) 28%, rgba(6, 18, 48, 0.92) 70%, #061230 100%);
+}
+.cme-reveal .scene-cards .sg-waves::before,
+.cme-reveal .scene-cards .sg-waves::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 200%;
+  height: 42%;
+  bottom: 38%;
+  opacity: 0.45;
+  background: linear-gradient(180deg, rgba(159, 208, 255, 0.35), transparent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40' preserveAspectRatio='none'%3E%3Cpath d='M0 14 Q15 4 30 14 T60 14 T90 14 T120 14 V40 H0Z' fill='%23000'/%3E%3C/svg%3E") repeat-x 0 100% / 50% 100%;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40' preserveAspectRatio='none'%3E%3Cpath d='M0 14 Q15 4 30 14 T60 14 T90 14 T120 14 V40 H0Z' fill='%23000'/%3E%3C/svg%3E") repeat-x 0 100% / 50% 100%;
+  animation: sgWave 7s linear infinite;
+}
+.cme-reveal .scene-cards .sg-waves::after {
+  bottom: 28%;
+  opacity: 0.28;
+  animation: sgWave 11s linear infinite reverse;
+}
+
+.cme-reveal .scene-cards .sg-floor {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 16.4%;
+  z-index: 4;
+  height: 0.16cqw;
+  overflow: hidden;
+  background: linear-gradient(90deg, transparent, var(--sg-blue) 20%, var(--sg-gold-hi) 50%, var(--sg-blue) 80%, transparent);
+  box-shadow: 0 0 1cqw var(--sg-blue);
+  animation: luBeamLine 4s ease-in-out infinite;
+}
+.cme-reveal .scene-cards .sg-floor::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -20%;
+  width: 20%;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  animation: sgEdgeRun 3.6s linear infinite;
+}
+
+.cme-reveal .scene-cards .cards-footer {
+  position: absolute;
+  left: 3.2%;
+  right: 3.2%;
+  bottom: 1.6%;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 1.2%;
+}
+.cme-reveal .scene-cards .cards-footer-center {
+  min-width: 0;
+  text-align: center;
+}
+.cme-reveal .scene-cards .cards-footer-outline {
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Bebas Neue', Oswald, Impact, sans-serif;
+  font-size: clamp(16px, 2.1cqw, 40px);
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 0.07cqw rgba(235, 244, 255, 0.95);
+  background: linear-gradient(100deg, transparent 40%, rgba(159, 208, 255, 0.95) 50%, transparent 60%) 100% 0 / 300% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: luOutlineShine 5.5s ease-in-out infinite;
+}
+.cme-reveal .scene-cards .cards-footer-division {
+  margin: 0.35cqw 0 0.45cqw;
+  font-size: 0.78cqw;
+  font-weight: 600;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: rgba(200, 225, 255, 0.85);
+  animation: luCaption 4s ease-in-out infinite;
+}
+
+.cme-reveal .scene-cards .sg-carousel {
+  height: 2.4cqw;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+.cme-reveal .scene-cards .sg-carousel-track {
+  display: flex;
+  width: max-content;
+  height: 100%;
+  animation: sgMarquee 28s linear infinite;
+}
+.cme-reveal .scene-cards .sg-carousel-run {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1.6cqw;
+  padding-right: 1.6cqw;
+}
+.cme-reveal .scene-cards .sg-carousel-run span {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.4cqw;
+  white-space: nowrap;
+}
+.cme-reveal .scene-cards .sg-carousel-run img {
+  width: 1.7cqw;
+  height: 1.7cqw;
+  object-fit: contain;
+  filter: drop-shadow(0 0 0.35cqw rgba(242, 193, 78, 0.45));
+}
+.cme-reveal .scene-cards .sg-carousel-run b {
+  font-size: 0.68cqw;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(220, 236, 255, 0.85);
+}
+
+.cme-reveal .scene-cards .cards-footer-sponsors {
+  display: flex;
+  align-items: center;
+  gap: 0.8cqw;
+  min-width: 0;
+  font-size: 0.62cqw;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(200, 220, 245, 0.8);
+}
+.cme-reveal .scene-cards .cards-footer-sponsors > span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15cqw;
+  white-space: nowrap;
+}
+.cme-reveal .scene-cards .cards-footer-sponsors strong {
+  font-family: 'Bebas Neue', Oswald, sans-serif;
+  font-size: 1.35cqw;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: var(--sg-gold-hi);
+}
+.cme-reveal .scene-cards .cards-footer-sponsors img {
+  flex: none;
+  width: 2.8cqw;
+  height: 2.8cqw;
+  object-fit: contain;
+  filter: drop-shadow(0 0 0.5cqw rgba(242, 193, 78, 0.45));
+  animation: luLogo 4s ease-in-out infinite;
+}
+.cme-reveal .scene-cards .cards-footer-right {
+  justify-content: flex-end;
+  text-align: right;
+}
+.cme-reveal .scene-cards .cards-footer-right > span {
+  align-items: flex-end;
+}
+.cme-reveal .scene-cards .sg-seals {
+  display: flex;
+  gap: 0.4cqw;
+}
+.cme-reveal .scene-cards .sg-seals img {
+  width: 2.3cqw;
+  height: 2.3cqw;
+}
+.cme-reveal .scene-cards .sg-seals img:nth-child(2) {
+  width: 2.8cqw;
+  height: 2.8cqw;
+  animation-delay: -1.3s;
+}
+.cme-reveal .scene-cards .sg-seals img:nth-child(3) {
+  animation-delay: -2.6s;
+}
+
+@keyframes cardsRevealIn {
+  0% { opacity: 0; transform: translateY(6%) scale(0.94); filter: brightness(2.2); }
+  60% { opacity: 1; filter: brightness(1.4); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: none; }
+}
+@keyframes sgGridDrift { to { background-position: 6.4cqw 0, -8.8cqw 0; } }
+@keyframes sgRailUp { to { transform: translateY(-50%); } }
+@keyframes sgFloat {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -0.7cqw; }
+}
+@keyframes sgGlow {
+  0%, 100% { opacity: 0.22; }
+  50% { opacity: 0.58; }
+}
+@keyframes sgFrameFlow { to { background-position: 0 240%; } }
+@keyframes sgBgSlide { to { background-position: 2.2cqw 2.2cqw, 0 0, 0 0; } }
+@keyframes sgCmeGlow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+@keyframes sgCardShine {
+  0%, 55% { left: -70%; }
+  85%, 100% { left: 130%; }
+}
+@keyframes sgScan {
+  0% { transform: translateY(-40%); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateY(620%); opacity: 0; }
+}
+@keyframes sgBlink {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+@keyframes sgEdgeRun { to { left: 110%; } }
+@keyframes sgWave { to { transform: translateX(-50%); } }
+@keyframes sgMarquee { to { transform: translateX(-50%); } }
+@keyframes sgSunPulse {
+  0%, 100% { opacity: 0.75; scale: 1; }
+  50% { opacity: 1; scale: 1.08; }
+}
+@keyframes sgHeadline {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cme-reveal .scene-cards .roster-card.reveal-in {
+    animation: none;
+  }
+}

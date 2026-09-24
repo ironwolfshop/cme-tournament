@@ -198,6 +198,25 @@ export async function speakHeroCallout(
   await speakOnce(`${spoken}.`, voice, voiceOpts)
 }
 
+/** Announce a team / scene title for lineup stingers (OBS Browser Source audio). */
+export async function speakAnnouncement(
+  text: string,
+  options: { rate?: number; pitch?: number; volume?: number } = {},
+): Promise<void> {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
+  const cleaned = text.trim()
+  if (!cleaned) return
+  const synth = window.speechSynthesis
+  synth.cancel()
+  await pause(40)
+  const voice = await pickFemaleVoice()
+  await speakOnce(cleaned, voice, {
+    rate: options.rate ?? 0.82,
+    pitch: options.pitch ?? 1.05,
+    volume: options.volume ?? 1,
+  })
+}
+
 export function stopHeroCallout() {
   if (typeof window === 'undefined' || !window.speechSynthesis) return
   window.speechSynthesis.cancel()

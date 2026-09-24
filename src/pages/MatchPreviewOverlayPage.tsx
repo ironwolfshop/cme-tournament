@@ -51,34 +51,12 @@ export default function MatchPreviewOverlayPage() {
       </div>
 
       <footer className="mp-footer">
-        <span
-          className={`mp-footer-side blue${isPendingName(blue?.name) ? ' is-pending' : ''}`}
-        >
-          {formatTeamName(blue?.name, 'Blue side')}
-        </span>
+        <span className="mp-footer-side blue">{blue?.name ?? 'Blue'}</span>
         <span className="mp-footer-sep" />
-        <span
-          className={`mp-footer-side red${isPendingName(red?.name) ? ' is-pending' : ''}`}
-        >
-          {formatTeamName(red?.name, 'Red side')}
-        </span>
+        <span className="mp-footer-side red">{red?.name ?? 'Red'}</span>
       </footer>
     </div>
   )
-}
-
-function isPendingName(name?: string | null) {
-  const trimmed = (name ?? '').trim()
-  return !trimmed || /^team\s*\d+$/i.test(trimmed)
-}
-
-function isPendingTag(tag?: string | null) {
-  const trimmed = (tag ?? '').trim()
-  return !trimmed || /^t\d+$/i.test(trimmed)
-}
-
-function formatTeamName(name: string | undefined, fallback: string) {
-  return isPendingName(name) ? fallback : (name ?? fallback).trim()
 }
 
 function TeamLogoBlock({
@@ -88,28 +66,20 @@ function TeamLogoBlock({
   team: { name: string; tag: string; logo: string } | null
   side: 'blue' | 'red'
 }) {
-  const tagPending = isPendingTag(team?.tag)
-  const namePending = isPendingName(team?.name)
-
   return (
     <div className={`mp-team mp-team-${side}`}>
       <div className="mp-logo-ring">
-        <div className={`mp-logo${team?.logo ? '' : ' is-empty'}`}>
+        <div className="mp-logo">
           {team?.logo ? (
             <img src={team.logo} alt="" />
           ) : (
             <span className="mp-logo-fallback">
-              {tagPending ? 'TBD' : (team?.tag ?? 'TBD').slice(0, 3)}
+              {(team?.tag ?? '?').slice(0, 3)}
             </span>
           )}
         </div>
       </div>
-      <div className={`mp-tag${tagPending ? ' is-pending' : ''}`}>
-        {tagPending ? 'TAG PENDING' : team?.tag}
-      </div>
-      <div className={`mp-name${namePending ? ' is-pending' : ''}`}>
-        {formatTeamName(team?.name, 'Awaiting team')}
-      </div>
+      <div className="mp-tag">{team?.tag ?? 'TBD'}</div>
     </div>
   )
 }

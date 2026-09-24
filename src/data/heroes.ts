@@ -9,7 +9,7 @@ export type Hero = {
 }
 
 /** Bump when re-downloading portraits so grids pick up new files (cache bust). */
-export const HERO_ASSET_VERSION = 'splashes-20260923'
+export const HERO_ASSET_VERSION = 'sept2026-hirara'
 
 /** Local default-skin splash (downloaded via scripts/download-*-portraits.mjs). */
 export function heroLocalSplashUrl(heroId: string): string {
@@ -79,7 +79,7 @@ export const HEROES: Hero[] = [
   { id: 'roger', name: 'Roger', role: 'Fighter', gameId: 39 },
   { id: 'karrie', name: 'Karrie', role: 'Marksman', gameId: 40 },
   { id: 'gatotkaca', name: 'Gatotkaca', role: 'Tank', gameId: 41 },
-  { id: 'harley', name: 'Harley', role: 'Mage', gameId: 42 },
+  { id: 'harley', name: 'Harley', role: 'Assassin', gameId: 42 },
   { id: 'irithel', name: 'Irithel', role: 'Marksman', gameId: 43 },
   { id: 'grock', name: 'Grock', role: 'Tank', gameId: 44 },
   { id: 'argus', name: 'Argus', role: 'Fighter', gameId: 45 },
@@ -118,7 +118,7 @@ export const HEROES: Hero[] = [
   { id: 'khufra', name: 'Khufra', role: 'Tank', gameId: 78 },
   { id: 'granger', name: 'Granger', role: 'Marksman', gameId: 79 },
   { id: 'guinevere', name: 'Guinevere', role: 'Fighter', gameId: 80 },
-  { id: 'esmeralda', name: 'Esmeralda', role: 'Mage', gameId: 81 },
+  { id: 'esmeralda', name: 'Esmeralda', role: 'Tank', gameId: 81 },
   { id: 'terizla', name: 'Terizla', role: 'Fighter', gameId: 82 },
   { id: 'x-borg', name: 'X.Borg', role: 'Fighter', gameId: 83 },
   { id: 'ling', name: 'Ling', role: 'Assassin', gameId: 84 },
@@ -131,7 +131,7 @@ export const HEROES: Hero[] = [
   { id: 'cecilion', name: 'Cecilion', role: 'Mage', gameId: 91 },
   { id: 'carmilla', name: 'Carmilla', role: 'Support', gameId: 92 },
   { id: 'atlas', name: 'Atlas', role: 'Tank', gameId: 93 },
-  { id: 'popol', name: 'Popol and Kupa', role: 'Marksman', gameId: 94 },
+  { id: 'popol-and-kupa', name: 'Popol and Kupa', role: 'Marksman', gameId: 94 },
   { id: 'yu-zhong', name: 'Yu Zhong', role: 'Fighter', gameId: 95 },
   { id: 'luo-yi', name: 'Luo Yi', role: 'Mage', gameId: 96 },
   { id: 'benedetta', name: 'Benedetta', role: 'Assassin', gameId: 97 },

@@ -37,14 +37,9 @@ function HeroImage({
 
   const sources = useMemo(() => {
     if (!hero) return [] as string[]
-    // Prefer compact CDN icons for grid/portrait; splash/loading can fall back too
     const icon = DEFAULT_SKIN_ICON[hero.id]
-    if (variant === 'portrait' || variant === 'ban') {
-      return icon ? [icon] : []
-    }
-    // loading/splash: icon first (locks instantly), optional larger assets later
     return icon ? [icon] : []
-  }, [hero, variant])
+  }, [hero])
 
   useEffect(() => {
     setSrcIndex(0)
@@ -79,25 +74,22 @@ function HeroImage({
     ? focus
       ? `${focus.x}% ${focus.y}%`
       : '50% 22%'
-    : variant === 'loading' || variant === 'splash'
-      ? '50% 22%'
-      : undefined
+    : undefined
 
   return (
-    <div className={`overflow-hidden ${className}`} style={{ contentVisibility: 'auto' as const }}>
+    <div className={`overflow-hidden ${className}`}>
       <img
         key={src}
         src={src}
         alt={hero.name}
         loading={lazy ? 'lazy' : 'eager'}
         decoding="async"
-        fetchPriority={lazy ? 'low' : 'high'}
         crossOrigin={shouldAutoCrop ? 'anonymous' : undefined}
         className={`h-full w-full object-cover ${
           variant === 'ban' ? 'grayscale brightness-75' : ''
         } ${imgClassName}`}
         style={
-          objectPosition
+          shouldAutoCrop
             ? {
                 objectPosition,
                 transform:

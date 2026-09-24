@@ -1,12 +1,11 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   createCamViewer,
   type CamSlotId,
 } from '../../lib/camWebRtc'
-import { Icon } from '../cme/Icon'
 
 /** Live WebRTC feed for team / shoutcaster slots published from /cam */
-function TeamCamFeed({
+export default function TeamCamFeed({
   side,
   className = '',
   waitingLabel,
@@ -17,8 +16,6 @@ function TeamCamFeed({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [live, setLive] = useState(false)
-  // Sticky: once we have frames, keep showing video through brief reconnect blips
-  const everLiveRef = useRef(false)
 
   useEffect(() => {
     const video = videoRef.current
@@ -26,20 +23,7 @@ function TeamCamFeed({
     const viewer = createCamViewer({
       slotId: side,
       video,
-      onStatus: (s) => {
-        if (s === 'live') {
-          everLiveRef.current = true
-          setLive(true)
-          return
-        }
-        if (s === 'idle' || s === 'error') {
-          everLiveRef.current = false
-          setLive(false)
-          return
-        }
-        // 'connecting' — keep last frame visible if we were already live
-        if (!everLiveRef.current) setLive(false)
-      },
+      onStatus: (s) => setLive(s === 'live'),
     })
     return () => viewer.stop()
   }, [side])
@@ -48,8 +32,6 @@ function TeamCamFeed({
     waitingLabel ??
     (side === 'caster' ? 'shoutcaster cam' : `${side} cam`)
 
-  const showWaiting = !live && !everLiveRef.current
-
   return (
     <>
       <video
@@ -57,17 +39,18 @@ function TeamCamFeed({
         playsInline
         autoPlay
         muted
-        className={`team-cam-feed-video ${className} ${live || everLiveRef.current ? 'is-live' : 'is-waiting'}`}
+        className={`absolute inset-0 h-full w-full object-cover ${className} ${
+          live ? 'opacity-100' : 'opacity-0'
+        }`}
       />
-      {showWaiting && (
-        <div className="team-cam-waiting" aria-hidden>
-          <Icon name="camera" />
-          <span className="team-cam-waiting-label">{label}</span>
-          <span className="team-cam-waiting-note">Waiting for feed…</span>
+      {!live && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-gradient-to-b from-slate-800/80 to-slate-950/90">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">
+            {label}
+          </span>
+          <span className="text-[9px] text-white/35">Waiting for feed…</span>
         </div>
       )}
     </>
   )
 }
-
-export default memo(TeamCamFeed)

@@ -67,16 +67,6 @@ npm run build
 npm run preview
 ```
 
-## Vercel
-
-This is a Vite SPA. Deploy from GitHub (`ironwolfshop/cme-tournament`) or `vercel`.
-
-- Build: `npm run build`
-- Output: `dist`
-- Client routes are rewritten to `index.html` via `vercel.json`
-
-Realtime draft/game sync uses the local Vite WebSocket hub (`npm run dev`). On Vercel, multi-tab sync falls back to `BroadcastChannel` / `localStorage` on the same browser.
-
 ## Notes
 
 - Hero portraits load from Moonton’s public CDN (name fallback if blocked).

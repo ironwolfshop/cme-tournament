@@ -28,12 +28,24 @@ type HubMessage =
   | { type: 'pong' }
   | CamRelayMessage
 
+type Outbound =
+  | { type: 'push'; channel: SyncChannel; payload: unknown }
+  | CamRelayMessage
+  | { type: 'ping' }
+
 const listeners = new Map<SyncChannel, Set<Listener>>()
 const camListeners = new Set<CamListener>()
 let socket: WebSocket | null = null
 let reconnectTimer: number | null = null
 let started = false
 let pingTimer: number | null = null
+let reconnectAttempt = 0
+let connectGeneration = 0
+/** Latest push per channel while offline — flushed on reconnect. */
+const pendingByChannel = new Map<SyncChannel, unknown>()
+const pendingCam: Outbound[] = []
+const MAX_PENDING_CAM = 64
+
 const peerId =
   typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
@@ -70,12 +82,36 @@ function emitCam(msg: CamRelayMessage) {
   }
 }
 
+function sendRaw(msg: Outbound) {
+  if (socket?.readyState !== WebSocket.OPEN) return false
+  try {
+    socket.send(JSON.stringify(msg))
+    return true
+  } catch {
+    return false
+  }
+}
+
+function flushPending() {
+  for (const [channel, payload] of pendingByChannel) {
+    if (!sendRaw({ type: 'push', channel, payload })) break
+    pendingByChannel.delete(channel)
+  }
+  while (pendingCam.length) {
+    const next = pendingCam[0]
+    if (!sendRaw(next)) break
+    pendingCam.shift()
+  }
+}
+
 function scheduleReconnect() {
   if (reconnectTimer != null) return
+  const delay = Math.min(8000, 400 * 2 ** Math.min(reconnectAttempt, 4))
+  reconnectAttempt += 1
   reconnectTimer = window.setTimeout(() => {
     reconnectTimer = null
     connect()
-  }, 800)
+  }, delay)
 }
 
 function connect() {
@@ -88,6 +124,8 @@ function connect() {
     return
   }
 
+  const gen = ++connectGeneration
+
   try {
     socket = new WebSocket(wsUrl())
   } catch {
@@ -95,16 +133,20 @@ function connect() {
     return
   }
 
-  socket.addEventListener('open', () => {
+  const current = socket
+
+  current.addEventListener('open', () => {
+    if (gen !== connectGeneration || socket !== current) return
+    reconnectAttempt = 0
     if (pingTimer != null) window.clearInterval(pingTimer)
     pingTimer = window.setInterval(() => {
-      if (socket?.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'ping' }))
-      }
-    }, 15000)
+      sendRaw({ type: 'ping' })
+    }, 20000)
+    flushPending()
   })
 
-  socket.addEventListener('message', (event) => {
+  current.addEventListener('message', (event) => {
+    if (gen !== connectGeneration) return
     try {
       const msg = JSON.parse(String(event.data)) as HubMessage
       if (msg.type === 'snapshot' && msg.channels) {
@@ -125,8 +167,9 @@ function connect() {
     }
   })
 
-  socket.addEventListener('close', () => {
-    socket = null
+  current.addEventListener('close', () => {
+    if (gen !== connectGeneration) return
+    if (socket === current) socket = null
     if (pingTimer != null) {
       window.clearInterval(pingTimer)
       pingTimer = null
@@ -134,9 +177,10 @@ function connect() {
     scheduleReconnect()
   })
 
-  socket.addEventListener('error', () => {
+  current.addEventListener('error', () => {
+    if (gen !== connectGeneration) return
     try {
-      socket?.close()
+      current.close()
     } catch {
       /* ignore */
     }
@@ -170,7 +214,9 @@ export function subscribeCam(listener: CamListener) {
   }
 }
 
-export function sendCam(msg: Omit<CamRelayMessage, 'type' | 'fromId'> & { fromId?: string }) {
+export function sendCam(
+  msg: Omit<CamRelayMessage, 'type' | 'fromId'> & { fromId?: string },
+) {
   ensureObsSync()
   const full: CamRelayMessage = {
     type: 'cam',
@@ -182,49 +228,45 @@ export function sendCam(msg: Omit<CamRelayMessage, 'type' | 'fromId'> & { fromId
     candidate: msg.candidate,
     label: msg.label,
   }
-  if (socket?.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify(full))
-    return
-  }
-  // Retry shortly once WS is up
-  window.setTimeout(() => {
-    if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(full))
-    }
-  }, 400)
+  if (sendRaw(full)) return
+  pendingCam.push(full)
+  while (pendingCam.length > MAX_PENDING_CAM) pendingCam.shift()
 }
 
 export function pushSync(channel: SyncChannel, payload: unknown) {
   ensureObsSync()
-  const body = JSON.stringify(payload ?? null)
-  const envelope = JSON.stringify({ type: 'push', channel, payload })
-
-  if (socket?.readyState === WebSocket.OPEN) {
-    socket.send(envelope)
+  // Always keep the newest payload for this channel (coalesce bursts).
+  pendingByChannel.set(channel, payload ?? null)
+  if (sendRaw({ type: 'push', channel, payload: payload ?? null })) {
+    pendingByChannel.delete(channel)
     return
   }
-
-  // WS still connecting — POST so the hub updates, then also retry WS once open
+  // Offline: queued until open; HTTP fallback so OBS still gets a copy.
   void fetch(`/api/sync/${channel}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body,
+    body: JSON.stringify(payload ?? null),
   }).catch(() => {
     /* ignore */
   })
-
-  if (socket?.readyState === WebSocket.CONNECTING) {
-    const retry = () => {
-      if (socket?.readyState === WebSocket.OPEN) {
-        socket.send(envelope)
-      }
-    }
-    socket.addEventListener('open', retry, { once: true })
-  }
 }
 
 export function fetchSync(channel: SyncChannel): Promise<unknown> {
   return fetch(`/api/sync/${channel}`)
-    .then((r) => r.json())
+    .then(async (r) => {
+      const text = await r.text()
+      if (!r.ok) return null
+      if (text.trimStart().startsWith('<')) return null
+      try {
+        return JSON.parse(text) as unknown
+      } catch {
+        return null
+      }
+    })
     .catch(() => null)
+}
+
+/** True when the hub socket is open (for control UI status). */
+export function isObsSyncConnected() {
+  return socket?.readyState === WebSocket.OPEN
 }

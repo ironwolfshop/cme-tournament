@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { UNIQUE_HEROES } from '../data/heroes'
-import { buildPickQueue } from '../data/pickOrder'
+import { buildPickQueue, isPickBlockComplete } from '../data/pickOrder'
 import { fetchSync, pushSync, subscribeSync } from '../lib/obsSync'
+import { loadJson, loadJsonSync, saveJsonFire } from '../lib/appStorage'
 
 export type TeamSide = 'blue' | 'red'
 export type DraftPhase = 'ban' | 'pick' | 'done'
@@ -30,22 +31,9 @@ export type PredictorEntry = {
   percent: number
 }
 
-export type DraftRevealEntry = {
-  side: TeamSide
-  slot: number
-  heroId: string
-  playerName: string
-  playerPhoto?: string
-  teamTag: string
-  teamName: string
-}
-
 export type DraftReveal = {
   id: string
   kind: 'pick' | 'ban'
-  /** One card for single picks/bans; two cards for a completed 2-pick block. */
-  entries: DraftRevealEntry[]
-  /** Convenience mirrors of entries[0] for sync / older consumers. */
   side: TeamSide
   slot: number
   heroId: string
@@ -54,73 +42,6 @@ export type DraftReveal = {
   teamTag: string
   teamName: string
   startedAt: number
-}
-
-/** Broadcast pick/ban reveal modal duration (must match DraftRevealOverlay). */
-export const DRAFT_REVEAL_MS = 5000
-
-function revealEntryFrom(
-  team: TeamState,
-  side: TeamSide,
-  slot: number,
-  heroId: string,
-  kind: 'pick' | 'ban',
-): DraftRevealEntry {
-  const player = team.players[slot]
-  return {
-    side,
-    slot,
-    heroId,
-    playerName:
-      kind === 'ban' ? team.tag : (player?.name?.trim() || team.tag),
-    playerPhoto: kind === 'ban' ? team.logo || undefined : player?.photo,
-    teamTag: team.tag,
-    teamName: team.name,
-  }
-}
-
-function makeReveal(
-  kind: 'pick' | 'ban',
-  entries: DraftRevealEntry[],
-  idSuffix: string,
-): DraftReveal {
-  const primary = entries[0]
-  return {
-    id: `${Date.now()}-${idSuffix}`,
-    kind,
-    entries,
-    side: primary.side,
-    slot: primary.slot,
-    heroId: primary.heroId,
-    playerName: primary.playerName,
-    playerPhoto: primary.playerPhoto,
-    teamTag: primary.teamTag,
-    teamName: primary.teamName,
-    startedAt: Date.now(),
-  }
-}
-
-function normalizeReveal(reveal: DraftReveal | null | undefined): DraftReveal | null {
-  if (!reveal) return null
-  if (reveal.entries?.length) {
-    return {
-      ...reveal,
-      entries: reveal.entries.map((e) => ({ ...e })),
-    }
-  }
-  // Older payloads without entries[]
-  const legacy = reveal as DraftReveal & { entries?: DraftRevealEntry[] }
-  if (!legacy.heroId) return null
-  const entry: DraftRevealEntry = {
-    side: legacy.side,
-    slot: legacy.slot,
-    heroId: legacy.heroId,
-    playerName: legacy.playerName,
-    playerPhoto: legacy.playerPhoto,
-    teamTag: legacy.teamTag,
-    teamName: legacy.teamName,
-  }
-  return { ...legacy, entries: [entry] }
 }
 
 export type DraftState = {
@@ -142,6 +63,8 @@ export type DraftState = {
   predictor: PredictorEntry[]
   history: string[]
   reveal: DraftReveal | null
+  /** Wall-clock ms of the last local edit — decides which copy wins on reconnect. */
+  updatedAt?: number
 }
 
 type DraftActions = {
@@ -150,6 +73,8 @@ type DraftActions = {
   setFirstPickSide: (side: TeamSide) => void
   setActiveSide: (side: TeamSide) => void
   setActiveSlot: (slot: number) => void
+  /** Ban/pick focus in one sync push (avoids triple-broadcast lag). */
+  selectSlot: (side: TeamSide, slot: number, phase?: DraftPhase) => void
   setTimerSeconds: (seconds: number) => void
   setTimerRunning: (running: boolean) => void
   tickTimer: () => void
@@ -185,6 +110,7 @@ export type DraftStore = DraftState & DraftActions
 
 const CHANNEL = 'mlbb-draft-sync'
 const STORAGE_KEY = 'mlbb-draft-state-v3'
+const HISTORY_CAP = 40
 
 const emptySlots = (n: number) =>
   Array.from({ length: n }, () => null as string | null)
@@ -234,20 +160,8 @@ function createInitialState(): DraftState {
   }
 }
 
-function cloneTeam(team: TeamState): TeamState {
-  return {
-    name: team.name,
-    tag: team.tag,
-    logo: team.logo,
-    players: team.players.map((p) => ({ name: p.name, photo: p.photo })),
-    bans: team.bans.slice(),
-    picks: team.picks.slice(),
-  }
-}
-
-/** Fast shallow snapshot — avoids structuredClone on every lock/tick. */
-function snapshot(state: DraftState, includeHistory = true): DraftState {
-  return {
+function snapshot(state: DraftState): DraftState {
+  return structuredClone({
     matchLabel: state.matchLabel,
     phase: state.phase,
     firstPickSide: state.firstPickSide ?? 'blue',
@@ -256,20 +170,39 @@ function snapshot(state: DraftState, includeHistory = true): DraftState {
     activeSlot: state.activeSlot,
     timerSeconds: state.timerSeconds,
     timerRunning: state.timerRunning,
-    blue: cloneTeam(state.blue),
-    red: cloneTeam(state.red),
-    bpmBlue: { ...state.bpmBlue },
-    bpmRed: { ...state.bpmRed },
+    blue: state.blue,
+    red: state.red,
+    bpmBlue: state.bpmBlue,
+    bpmRed: state.bpmRed,
     predictorLabel: state.predictorLabel,
-    predictor: state.predictor.map((p) => ({ ...p })),
-    history: includeHistory ? state.history.slice(-40) : [],
-    reveal: normalizeReveal(state.reveal),
-  }
+    predictor: state.predictor,
+    history: state.history,
+    reveal: state.reveal,
+    updatedAt: state.updatedAt ?? 0,
+  })
 }
 
-/** Overlay/peers never need undo history — keeps lock payloads small & fast. */
-function snapshotForSync(state: DraftState): DraftState {
-  return snapshot(state, false)
+/** Undo entry must NEVER embed prior history — that nests exponentially and freezes the tab. */
+function historyEntry(state: DraftState): string {
+  return JSON.stringify({ ...snapshot(state), history: [] })
+}
+
+function sanitizeHistory(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const entry of raw) {
+    if (typeof entry !== 'string' || !entry) continue
+    // Drop corrupted nested-history blobs from older builds (multi-MB entries).
+    if (entry.length > 250_000) continue
+    try {
+      const parsed = JSON.parse(entry) as Partial<DraftState>
+      out.push(JSON.stringify({ ...parsed, history: [] }))
+    } catch {
+      /* skip bad entry */
+    }
+    if (out.length >= HISTORY_CAP) break
+  }
+  return out
 }
 
 /** Next empty pick in official 1-2-2-2-2-1 order. */
@@ -300,49 +233,14 @@ function nextPickTurn(state: DraftState): {
   }
 }
 
-/** Next empty ban in first-pick-side alternating order, or pick turn when bans done. */
-function nextBanTurn(state: DraftState): {
-  activeSide: TeamSide
-  activeSlot: number
-  phase: DraftPhase
-  pickOrderIndex?: number
-} {
-  const first = state.firstPickSide ?? 'blue'
-  const second: TeamSide = first === 'blue' ? 'red' : 'blue'
-  const order: TeamSide[] = [first, second]
-  for (let i = 0; i < 5; i++) {
-    for (const side of order) {
-      if (!state[side].bans[i]) {
-        return { activeSide: side, activeSlot: i, phase: 'ban' }
-      }
-    }
-  }
-  const pick = nextPickTurn(state)
-  return {
-    activeSide: pick.activeSide,
-    activeSlot: pick.activeSlot,
-    phase: pick.phase,
-    pickOrderIndex: pick.pickOrderIndex,
-  }
-}
-
-function scheduleRevealClear(revealId: string) {
-  if (typeof window === 'undefined') return
-  window.setTimeout(() => {
-    const current = useDraftStore.getState().reveal
-    if (current?.id === revealId) {
-      useDraftStore.getState().clearReveal()
-    }
-  }, DRAFT_REVEAL_MS)
-}
-
 function normalizeHydrated(state: DraftState): DraftState {
   const firstPickSide = state.firstPickSide ?? 'blue'
   const base = {
     ...state,
     firstPickSide,
     pickOrderIndex: state.pickOrderIndex ?? 0,
-    reveal: normalizeReveal(state.reveal),
+    reveal: state.reveal ?? null,
+    history: sanitizeHistory(state.history),
   }
   if (base.phase === 'pick' || base.phase === 'done') {
     const turn = nextPickTurn(base)
@@ -352,23 +250,25 @@ function normalizeHydrated(state: DraftState): DraftState {
 }
 
 function loadStored(): DraftState | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return normalizeHydrated(JSON.parse(raw) as DraftState)
-  } catch {
-    return null
+  const raw = loadJsonSync<DraftState>(STORAGE_KEY)
+  if (!raw) return null
+  // Older builds nested full undo stacks inside each entry — wipe before hydrate.
+  if (Array.isArray(raw.history)) {
+    const total = raw.history.reduce(
+      (n, e) => n + (typeof e === 'string' ? e.length : 0),
+      0,
+    )
+    if (total > 1_500_000) raw.history = []
   }
+  return normalizeHydrated(raw)
 }
 
 let channel: BroadcastChannel | null = null
 let applyingRemote = false
-let persistTimer: number | null = null
-let storageTimer: number | null = null
-let pendingState: DraftState | null = null
-let lastSoftPushAt = 0
-/** Bumps on every local edit — blocks late GET /api/sync from stomping newer locks. */
 let localRevision = 0
+let pushTimer: number | null = null
+let pendingPush: DraftState | null = null
+let syncStarted = false
 
 function getChannel() {
   if (typeof BroadcastChannel === 'undefined') return null
@@ -376,77 +276,70 @@ function getChannel() {
   return channel
 }
 
-function writeLocalStorage(state: DraftState) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot(state, true)))
-  } catch {
-    /* ignore quota */
+function flushPush() {
+  if (pushTimer != null) {
+    window.clearTimeout(pushTimer)
+    pushTimer = null
   }
-}
-
-function flushSyncNow(state: DraftState) {
-  const data = snapshotForSync(state)
-  getChannel()?.postMessage({ type: 'draft', payload: data })
+  if (!pendingPush) return
+  const data = pendingPush
+  pendingPush = null
   pushSync('draft', data)
 }
 
-function scheduleStorageWrite(state: DraftState) {
-  pendingState = state
-  if (typeof window === 'undefined') return
-  if (storageTimer != null) window.clearTimeout(storageTimer)
-  storageTimer = window.setTimeout(() => {
-    storageTimer = null
-    writeLocalStorage(pendingState ?? useDraftStore.getState())
-  }, 60)
+function schedulePush(data: DraftState, immediate = false) {
+  pendingPush = data
+  if (immediate) {
+    flushPush()
+    return
+  }
+  if (pushTimer != null) return
+  pushTimer = window.setTimeout(() => {
+    pushTimer = null
+    flushPush()
+  }, 120)
 }
 
-/**
- * Push overlay sync immediately on locks; throttle only timer ticks.
- * localStorage is debounced so disk I/O never blocks the lock path.
- */
 function persistAndBroadcast(
   state: DraftState,
-  opts: { urgent?: boolean; soft?: boolean } = {},
+  immediate = true,
+  opts?: { skipStorage?: boolean },
 ) {
   if (applyingRemote) return
-  if (typeof window === 'undefined') return
   localRevision += 1
-  pendingState = state
-
-  if (opts.urgent) {
-    if (persistTimer != null) {
-      window.clearTimeout(persistTimer)
-      persistTimer = null
-    }
-    // Immediate hub + BroadcastChannel so OBS overlay stays in lockstep
-    flushSyncNow(state)
-    lastSoftPushAt = performance.now()
-    scheduleStorageWrite(state)
-    return
+  const updatedAt = Date.now()
+  useDraftStore.setState({ updatedAt })
+  const data = snapshot({ ...state, updatedAt })
+  data.history = sanitizeHistory(data.history)
+  if (!opts?.skipStorage) {
+    saveJsonFire(STORAGE_KEY, data)
   }
+  getChannel()?.postMessage({ type: 'draft', payload: data })
+  schedulePush(data, immediate)
+}
 
-  if (opts.soft) {
-    const now = performance.now()
-    const due = Math.max(0, 200 - (now - lastSoftPushAt))
-    if (persistTimer != null) window.clearTimeout(persistTimer)
-    persistTimer = window.setTimeout(() => {
-      persistTimer = null
-      const latest = pendingState ?? useDraftStore.getState()
-      flushSyncNow(latest)
-      lastSoftPushAt = performance.now()
-    }, due)
-    scheduleStorageWrite(state)
-    return
-  }
+function withHistory(prev: DraftState, next: Partial<DraftState>): Partial<DraftState> {
+  const entry = historyEntry(prev)
+  const history = [...prev.history, entry]
+  if (history.length > HISTORY_CAP) history.splice(0, history.length - HISTORY_CAP)
+  return { ...next, history }
+}
 
-  if (persistTimer != null) window.clearTimeout(persistTimer)
-  persistTimer = window.setTimeout(() => {
-    persistTimer = null
-    const latest = pendingState ?? useDraftStore.getState()
-    flushSyncNow(latest)
-    writeLocalStorage(latest)
-    lastSoftPushAt = performance.now()
-  }, 0)
+function isDraftPayload(payload: unknown): payload is DraftState {
+  if (!payload || typeof payload !== 'object') return false
+  const p = payload as Partial<DraftState>
+  return !!p.blue && !!p.red && Array.isArray(p.blue.picks) && Array.isArray(p.red.picks)
+}
+
+function stampOf(payload: unknown): number {
+  return isDraftPayload(payload) ? payload.updatedAt ?? 0 : -1
+}
+
+function applyRemote(payload: unknown) {
+  if (!isDraftPayload(payload)) return
+  applyingRemote = true
+  useDraftStore.getState().hydrate(payload as DraftState)
+  applyingRemote = false
 }
 
 const initial = loadStored() ?? createInitialState()
@@ -494,6 +387,15 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
     set({ activeSlot: Math.max(0, Math.min(4, slot)) })
     persistAndBroadcast(get())
   },
+  selectSlot: (side, slot, phase) => {
+    const patch: Partial<DraftState> = {
+      activeSide: side,
+      activeSlot: Math.max(0, Math.min(4, slot)),
+    }
+    if (phase && phase !== 'done') patch.phase = phase
+    set(patch)
+    persistAndBroadcast(get(), true)
+  },
   setTimerSeconds: (seconds) => {
     set({ timerSeconds: Math.max(0, seconds) })
     persistAndBroadcast(get())
@@ -506,7 +408,8 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
     const { timerRunning, timerSeconds } = get()
     if (!timerRunning || timerSeconds <= 0) return
     set({ timerSeconds: timerSeconds - 1 })
-    persistAndBroadcast(get(), { soft: true })
+    // Clock ticks: skip localStorage + coalesce WS — keeps hero grid snappy
+    persistAndBroadcast(get(), false, { skipStorage: true })
   },
   updateTeam: (side, patch) => {
     set((s) => ({
@@ -524,56 +427,42 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
     persistAndBroadcast(get())
   },
   setBan: (side, index, heroId) => {
-    let revealId: string | null = null
     set((s) => {
       const bans = [...s[side].bans]
       bans[index] = heroId
       const team = s[side]
-      const nextTeam = { ...s[side], bans }
-      const provisional = { ...s, [side]: nextTeam } as DraftState
+      const banner = team.players[index]
       const reveal: DraftReveal | null = heroId
-        ? makeReveal(
-            'ban',
-            [revealEntryFrom(nextTeam, side, index, heroId, 'ban')],
-            `ban-${side}-${index}`,
-          )
+        ? {
+            id: `${Date.now()}-ban-${side}-${index}`,
+            kind: 'ban',
+            side,
+            slot: index,
+            heroId,
+            playerName: banner?.name || `PLAYER ${index + 1}`,
+            playerPhoto: banner?.photo || undefined,
+            teamTag: team.tag,
+            teamName: team.name,
+            startedAt: Date.now(),
+          }
         : s.reveal?.kind === 'ban' &&
-            s.reveal.entries.some((e) => e.side === side && e.slot === index)
+            s.reveal.side === side &&
+            s.reveal.slot === index
           ? null
           : s.reveal
-      if (reveal?.id && reveal.id !== s.reveal?.id) revealId = reveal.id
-      const turn = heroId
-        ? nextBanTurn(provisional)
-        : {
-            activeSide: s.activeSide,
-            activeSlot: s.activeSlot,
-            phase: s.phase as DraftPhase,
-            pickOrderIndex: s.pickOrderIndex,
-          }
-      return {
-        [side]: nextTeam,
-        history: [
-          ...s.history.slice(-39),
-          JSON.stringify(snapshot(s, false)),
-        ],
+      return withHistory(s, {
+        [side]: { ...s[side], bans },
         reveal,
-        activeSide: turn.activeSide,
-        activeSlot: turn.activeSlot,
-        phase: turn.phase,
-        ...(turn.pickOrderIndex != null
-          ? { pickOrderIndex: turn.pickOrderIndex }
-          : {}),
-        timerSeconds: heroId ? 30 : s.timerSeconds,
-      }
+      })
     })
-    persistAndBroadcast(get(), { urgent: true })
-    if (revealId) scheduleRevealClear(revealId)
+    persistAndBroadcast(get(), true)
   },
   setPick: (side, index, heroId) => {
-    let revealId: string | null = null
     set((s) => {
       const picks = [...s[side].picks]
       picks[index] = heroId
+      const team = s[side]
+      const player = team.players[index]
       const nextTeam = { ...s[side], picks }
       const provisional = { ...s, [side]: nextTeam } as DraftState
       const turn = nextPickTurn(provisional)
@@ -582,63 +471,46 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
       if (!heroId) {
         reveal =
           s.reveal?.kind === 'pick' &&
-          s.reveal.entries.some((e) => e.side === side && e.slot === index)
+          s.reveal.side === side &&
+          s.reveal.slot === index
             ? null
             : s.reveal
       } else {
-        const queue = buildPickQueue(s.firstPickSide ?? 'blue')
+        const queue = buildPickQueue(provisional.firstPickSide ?? 'blue')
         const target = queue.find((t) => t.side === side && t.slot === index)
-        if (!target) {
-          reveal = makeReveal(
-            'pick',
-            [revealEntryFrom(nextTeam, side, index, heroId, 'pick')],
-            `pick-${side}-${index}`,
-          )
-        } else {
-          const block = queue.filter((t) => t.blockIndex === target.blockIndex)
-          const pickAt = (t: (typeof block)[number]) =>
-            (t.side === side ? picks : s[t.side].picks)[t.slot]
-          const blockComplete = block.every((t) => !!pickAt(t))
-
-          // 2-pick blocks: wait until both heroes are selected before popup.
-          if (target.blockSize > 1 && !blockComplete) {
-            reveal = s.reveal
-          } else if (target.blockSize > 1 && blockComplete) {
-            const entries = block.map((t) => {
-              const hid = pickAt(t)!
-              const team = t.side === side ? nextTeam : s[t.side]
-              return revealEntryFrom(team, t.side, t.slot, hid, 'pick')
-            })
-            reveal = makeReveal(
-              'pick',
-              entries,
-              `pick-block-${target.blockIndex}`,
-            )
-          } else {
-            reveal = makeReveal(
-              'pick',
-              [revealEntryFrom(nextTeam, side, index, heroId, 'pick')],
-              `pick-${side}-${index}`,
-            )
-          }
+        const picksBySide = {
+          blue: provisional.blue.picks,
+          red: provisional.red.picks,
         }
+        // ×2 (and larger) blocks stay secret until every hero in the block is locked
+        const canReveal =
+          !target ||
+          target.blockSize <= 1 ||
+          isPickBlockComplete(queue, picksBySide, target.blockIndex)
+
+        reveal = canReveal
+          ? {
+              id: `${Date.now()}-pick-${side}-${index}`,
+              kind: 'pick',
+              side,
+              slot: index,
+              heroId,
+              playerName: player?.name ?? team.tag,
+              playerPhoto: player?.photo,
+              teamTag: team.tag,
+              teamName: team.name,
+              startedAt: Date.now(),
+            }
+          : null
       }
 
-      if (reveal?.id && reveal.id !== s.reveal?.id) revealId = reveal.id
-
-      return {
+      return withHistory(s, {
         [side]: nextTeam,
-        history: [
-          ...s.history.slice(-39),
-          JSON.stringify(snapshot(s, false)),
-        ],
         reveal,
         ...turn,
-        timerSeconds: heroId ? 30 : s.timerSeconds,
-      }
+      })
     })
-    persistAndBroadcast(get(), { urgent: true })
-    if (revealId) scheduleRevealClear(revealId)
+    persistAndBroadcast(get(), true)
   },
   assignHero: (heroId) => {
     const s = get()
@@ -671,12 +543,12 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
   },
   clearReveal: () => {
     set({ reveal: null })
-    persistAndBroadcast(get(), { soft: true })
+    persistAndBroadcast(get())
   },
   syncPickTurn: () => {
     const turn = nextPickTurn(get())
     set(turn)
-    persistAndBroadcast(get(), { urgent: true })
+    persistAndBroadcast(get())
   },
   undo: () => {
     const { history } = get()
@@ -684,12 +556,44 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
     const prev = history[history.length - 1]
     const parsed = normalizeHydrated(JSON.parse(prev) as DraftState)
     set({ ...parsed, history: history.slice(0, -1), reveal: null })
-    persistAndBroadcast(get(), { urgent: true })
+    persistAndBroadcast(get())
   },
   resetDraft: () => {
-    const next = createInitialState()
-    set(next)
-    persistAndBroadcast(get(), { urgent: true })
+    const s = get()
+    const blank = createInitialState()
+    const firstPickSide = s.firstPickSide ?? 'blue'
+    set({
+      ...blank,
+      matchLabel: s.matchLabel,
+      firstPickSide,
+      phase: 'ban',
+      pickOrderIndex: 0,
+      activeSide: firstPickSide,
+      activeSlot: 0,
+      timerSeconds: s.timerSeconds,
+      timerRunning: false,
+      blue: {
+        ...blank.blue,
+        name: s.blue.name,
+        tag: s.blue.tag,
+        logo: s.blue.logo,
+        players: s.blue.players.map((p) => ({ ...p })),
+      },
+      red: {
+        ...blank.red,
+        name: s.red.name,
+        tag: s.red.tag,
+        logo: s.red.logo,
+        players: s.red.players.map((p) => ({ ...p })),
+      },
+      bpmBlue: { ...s.bpmBlue },
+      bpmRed: { ...s.bpmRed },
+      predictorLabel: s.predictorLabel,
+      predictor: s.predictor.map((e) => ({ ...e })),
+      history: [],
+      reveal: null,
+    })
+    persistAndBroadcast(get(), true)
   },
   loadMatchup: (opts) => {
     const firstPickSide = opts.firstPickSide ?? 'blue'
@@ -719,139 +623,72 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
       history: [],
       reveal: null,
     })
-    persistAndBroadcast(get(), { urgent: true })
+    persistAndBroadcast(get())
   },
   clearMatchup: () => {
     set(createInitialState())
-    persistAndBroadcast(get(), { urgent: true })
+    persistAndBroadcast(get())
   },
   hydrate: (state) => {
     applyingRemote = true
-    try {
-      const incoming = normalizeHydrated(state)
-      const cur = get()
-      const keepHistory =
-        incoming.history?.length > 0 ? incoming.history : cur.history
-      const nextBlue =
-        incoming.blue && teamsDraftEqual(cur.blue, incoming.blue)
-          ? cur.blue
-          : (incoming.blue ?? cur.blue)
-      const nextRed =
-        incoming.red && teamsDraftEqual(cur.red, incoming.red)
-          ? cur.red
-          : (incoming.red ?? cur.red)
-      set({
-        ...incoming,
-        blue: nextBlue,
-        red: nextRed,
-        history: keepHistory,
-        reveal:
-          incoming.reveal?.id && incoming.reveal.id === cur.reveal?.id
-            ? cur.reveal
-            : (incoming.reveal ?? null),
-      })
-    } finally {
-      applyingRemote = false
-    }
+    set(normalizeHydrated(state))
+    applyingRemote = false
   },
 }))
 
-let draftSyncStarted = false
-
-function teamsDraftEqual(a: TeamState | null | undefined, b: TeamState | null | undefined) {
-  if (!a || !b) return false
-  if (a === b) return true
-  if (a.name !== b.name || a.tag !== b.tag || a.logo !== b.logo) return false
-  if (!a.bans || !a.picks || !b.bans || !b.picks) return false
-  for (let i = 0; i < 5; i++) {
-    if (a.bans[i] !== b.bans[i] || a.picks[i] !== b.picks[i]) return false
-    if ((a.players?.[i]?.name ?? '') !== (b.players?.[i]?.name ?? '')) return false
-    if ((a.players?.[i]?.photo ?? '') !== (b.players?.[i]?.photo ?? '')) return false
-  }
-  return true
-}
-
-function isDraftPayload(payload: unknown): payload is DraftState {
-  if (!payload || typeof payload !== 'object') return false
-  const p = payload as Partial<DraftState>
-  return !!p.blue && !!p.red && Array.isArray(p.blue.picks) && Array.isArray(p.red.picks)
-}
-
-function applyDraftRemote(payload: unknown) {
-  if (!isDraftPayload(payload)) return
-  const incoming = payload
-  const cur = useDraftStore.getState()
-
-  const picksChanged =
-    !teamsDraftEqual(incoming.blue, cur.blue) || !teamsDraftEqual(incoming.red, cur.red)
-  const turnChanged =
-    incoming.phase !== cur.phase ||
-    (incoming.firstPickSide ?? 'blue') !== (cur.firstPickSide ?? 'blue') ||
-    (incoming.pickOrderIndex ?? 0) !== (cur.pickOrderIndex ?? 0) ||
-    incoming.activeSide !== cur.activeSide ||
-    incoming.activeSlot !== cur.activeSlot ||
-    incoming.matchLabel !== cur.matchLabel ||
-    incoming.timerRunning !== cur.timerRunning ||
-    (incoming.reveal?.id ?? null) !== (cur.reveal?.id ?? null)
-
-  // Pure timer tick from control — patch clock only (OBS stays smooth)
-  if (!picksChanged && !turnChanged && incoming.timerSeconds !== cur.timerSeconds) {
-    useDraftStore.setState({ timerSeconds: incoming.timerSeconds })
-    return
-  }
-
-  // Exact echo of what we already have
-  if (!picksChanged && !turnChanged && incoming.timerSeconds === cur.timerSeconds) {
-    return
-  }
-
-  useDraftStore.getState().hydrate(incoming)
-}
-
 export function initDraftSync() {
-  if (draftSyncStarted) return
-  draftSyncStarted = true
+  if (syncStarted) return
+  syncStarted = true
+
+  // Only control desks author draft changes; overlays (OBS) just mirror the hub.
+  const isController = window.location.pathname.startsWith('/control')
+  let hubSeen = false
+  const localStamp = () => useDraftStore.getState().updatedAt ?? 0
+
+  const onHub = (payload: unknown) => {
+    if (!hubSeen) {
+      hubSeen = true
+      // Hub is behind this desk (fresh hub / restart) — republish instead of
+      // letting a stale browser cache overwrite the live draft.
+      if (isController && localStamp() > stampOf(payload)) {
+        pushSync('draft', snapshot(useDraftStore.getState()))
+        return
+      }
+    }
+    applyRemote(payload)
+  }
+
+  void loadJson<DraftState>(STORAGE_KEY).then((payload) => {
+    if (!isDraftPayload(payload)) return
+    const stamp = stampOf(payload)
+    if (!hubSeen) {
+      if (stamp >= localStamp()) applyRemote(payload)
+      return
+    }
+    if (isController && stamp > localStamp()) {
+      applyRemote(payload)
+      pushSync('draft', snapshot(useDraftStore.getState()))
+    }
+  })
 
   getChannel()?.addEventListener('message', (event: MessageEvent) => {
     const data = event.data
     if (data?.type === 'draft' && data.payload) {
-      applyDraftRemote(data.payload)
+      applyRemote(data.payload)
     }
   })
 
   window.addEventListener('storage', (e) => {
     if (e.key !== STORAGE_KEY || !e.newValue) return
     try {
-      applyDraftRemote(JSON.parse(e.newValue))
+      applyRemote(JSON.parse(e.newValue) as DraftState)
     } catch {
       /* ignore */
     }
   })
 
-  subscribeSync('draft', applyDraftRemote)
-
-  const revisionAtFetch = localRevision
-  const isControl =
-    typeof window !== 'undefined' &&
-    window.location.pathname.includes('/control')
-
-  void fetchSync('draft').then((payload) => {
-    // Don't let a slow GET wipe a lock that landed while we were fetching
-    if (localRevision !== revisionAtFetch) {
-      if (isControl && (!payload || typeof payload !== 'object')) {
-        pushSync('draft', snapshotForSync(useDraftStore.getState()))
-      }
-      return
-    }
-    if (isDraftPayload(payload)) {
-      applyDraftRemote(payload)
-      return
-    }
-    // Seed hub only when empty — never stomp a live overlay with stale localStorage
-    if (isControl) {
-      pushSync('draft', snapshotForSync(useDraftStore.getState()))
-    }
-  })
+  subscribeSync('draft', onHub)
+  void fetchSync('draft').then(onHub)
 }
 
 export { createInitialState }

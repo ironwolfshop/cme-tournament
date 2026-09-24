@@ -2,16 +2,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   destroyOcrWorker,
   getOcrWorker,
-  grabVideoFrame,
   isActiveOcrField,
   isKdaField,
-  readAllRegions,
-  readRegion,
+  readSnapshot,
+  readSnapshots,
+  snapshotRegions,
   type OcrField,
   type OcrReading,
   type OcrRegion,
 } from '../../lib/gameplayOcr'
+import {
+  getGameplayStream,
+  getGameplayViewerCount,
+  isGameplayCapturing,
+  startGameplayCapture,
+  stopGameplayCapture,
+  subscribeGameplayCapture,
+} from '../../lib/gameplayCapture'
 import { formatClock } from '../../store/gameplayStore'
+import { initCamsSync } from '../../store/camsStore'
 import { useOcrStore } from '../../store/ocrStore'
 
 function isMapped(r: { enabled: boolean; w: number; h: number }) {
@@ -40,7 +49,6 @@ type RegionBlockProps = {
   title: string
   list: OcrRegion[]
   selectedField: OcrField
-  lastReadings: OcrReading[]
   onToast?: (message: string) => void
 }
 
@@ -49,9 +57,9 @@ function RegionBlock({
   title,
   list,
   selectedField,
-  lastReadings,
   onToast,
-}: RegionBlockProps) {
+}: Omit<RegionBlockProps, 'lastReadings'>) {
+  const lastReadings = useOcrStore((s) => s.lastReadings)
   return (
     <>
       <div
@@ -189,16 +197,16 @@ export default function OcrControlPanel({ onToast }: Props) {
   const regions = useOcrStore((s) => s.regions)
   const intervalMs = useOcrStore((s) => s.intervalMs)
   const running = useOcrStore((s) => s.running)
-  const lastReadings = useOcrStore((s) => s.lastReadings)
   const lastError = useOcrStore((s) => s.lastError)
   const selectedField = useOcrStore((s) => s.selectedField)
   const status = useOcrStore((s) => s.status)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
   const loopRef = useRef<number | null>(null)
+  const loopActiveRef = useRef(false)
   const busyRef = useRef(false)
+  const scanTickRef = useRef(0)
   const dragRef = useRef<{
     field: OcrField
     startX: number
@@ -217,23 +225,57 @@ export default function OcrControlPanel({ onToast }: Props) {
     h: number
   } | null>(null)
 
-  const [hasCapture, setHasCapture] = useState(false)
+  const [hasCapture, setHasCapture] = useState(() => isGameplayCapturing())
   const [booting, setBooting] = useState(false)
+  const [viewers, setViewers] = useState(() => getGameplayViewerCount())
 
-  // Cleanup on unmount / HMR only — never depend on callbacks (avoids update loops)
+  useEffect(() => {
+    initCamsSync()
+  }, [])
+
+  useEffect(() => {
+    return subscribeGameplayCapture(() => {
+      const live = isGameplayCapturing()
+      setHasCapture(live)
+      setViewers(getGameplayViewerCount())
+      const video = videoRef.current
+      const stream = getGameplayStream()
+      if (video && stream && video.srcObject !== stream) {
+        video.srcObject = stream
+        video.playsInline = true
+        video.muted = true
+        void video.play().catch(() => undefined)
+      }
+      if (video && !live) video.srcObject = null
+    })
+  }, [])
+
+  useEffect(() => {
+    const stream = getGameplayStream()
+    const video = videoRef.current
+    if (stream && video) {
+      video.srcObject = stream
+      video.playsInline = true
+      video.muted = true
+      void video.play().catch(() => undefined)
+    }
+  }, [])
+
+  // OCR worker only — capture is a module singleton so shoutcaster preview
+  // stays live when this panel unmounts.
   useEffect(() => {
     return () => {
+      loopActiveRef.current = false
       if (loopRef.current != null) {
         window.clearTimeout(loopRef.current)
         loopRef.current = null
       }
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
       void destroyOcrWorker()
     }
   }, [])
 
   const stopLoop = useCallback(() => {
+    loopActiveRef.current = false
     if (loopRef.current != null) {
       window.clearTimeout(loopRef.current)
       loopRef.current = null
@@ -243,8 +285,7 @@ export default function OcrControlPanel({ onToast }: Props) {
 
   const stopCapture = useCallback(() => {
     stopLoop()
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    streamRef.current = null
+    stopGameplayCapture()
     if (videoRef.current) videoRef.current.srcObject = null
     setHasCapture(false)
     setDraftBox(null)
@@ -263,47 +304,7 @@ export default function OcrControlPanel({ onToast }: Props) {
     const ocr = useOcrStore.getState()
     ocr.setLastError('')
     try {
-      const media = navigator.mediaDevices
-      if (!media?.getDisplayMedia) {
-        throw new Error(
-          'Screen capture unavailable — use Chrome on http://localhost (not a LAN HTTP IP)',
-        )
-      }
-      const stream = await media.getDisplayMedia({
-        video: {
-          // Higher FPS = less laggy Chrome window preview
-          frameRate: { ideal: 30, max: 30 },
-          width: { ideal: 1920, max: 1920 },
-          height: { ideal: 1080, max: 1080 },
-          displaySurface: 'window',
-        } as MediaTrackConstraints,
-        audio: false,
-        preferCurrentTab: false,
-        selfBrowserSurface: 'exclude',
-        surfaceSwitching: 'exclude',
-        monitorTypeSurfaces: 'exclude',
-      } as DisplayMediaStreamOptions)
-
-      const track = stream.getVideoTracks()[0]
-      if (track) {
-        try {
-          await track.applyConstraints({
-            frameRate: { ideal: 30, max: 30 },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          })
-        } catch {
-          /* some browsers reject post-constraints */
-        }
-        try {
-          track.contentHint = 'motion'
-        } catch {
-          /* ignore */
-        }
-        track.addEventListener('ended', () => stopCapture())
-      }
-
-      streamRef.current = stream
+      const stream = await startGameplayCapture({ force: true })
       const video = videoRef.current
       if (video) {
         video.srcObject = stream
@@ -313,8 +314,8 @@ export default function OcrControlPanel({ onToast }: Props) {
         await video.play()
       }
       setHasCapture(true)
-      ocr.setStatus('Capture live — select a field, then drag a box')
-      onToast?.('Game window captured — drag boxes on the preview')
+      ocr.setStatus('Capture live — sharing to shoutcaster preview')
+      onToast?.('Window selected — shoutcasters can open Gameplay Preview')
       setBooting(true)
       void getOcrWorker()
         .then(() => {
@@ -338,8 +339,7 @@ export default function OcrControlPanel({ onToast }: Props) {
   async function runOnce() {
     const video = videoRef.current
     if (!video || busyRef.current) return
-    const frame = grabVideoFrame(video)
-    if (!frame) {
+    if (!video.videoWidth || !video.videoHeight) {
       useOcrStore.getState().setLastError('No video frame yet — wait a moment')
       return
     }
@@ -353,23 +353,31 @@ export default function OcrControlPanel({ onToast }: Props) {
       return
     }
     busyRef.current = true
-    ocr.setStatus('Reading HUD…')
     try {
-      const clockRegion = mapped.find((r) => r.id === 'clock')
-      const rest = mapped.filter((r) => r.id !== 'clock')
-      const collected: OcrReading[] = []
+      // All regions sampled from the same frame before any OCR runs
+      const hot = ['clock', 'blueKills', 'redKills']
+        .map((id) => mapped.find((r) => r.id === id))
+        .filter((r): r is NonNullable<typeof r> => r != null)
+      const rest = mapped.filter(
+        (r) =>
+          r.id !== 'clock' && r.id !== 'blueKills' && r.id !== 'redKills',
+      )
+      const hotSnaps = snapshotRegions(video, hot)
 
-      // Clock first so the overlay updates before the rest of the HUD scan.
-      if (clockRegion) {
-        const clockReading = await readRegion(frame, clockRegion)
-        collected.push(clockReading)
-        useOcrStore.getState().applyReadings([clockReading])
+      for (const snap of hotSnaps) {
+        const reading = await readSnapshot(snap)
+        if (reading.cached && reading.ok && snap.region.id !== 'clock') continue
+        useOcrStore.getState().applyReadings([reading])
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve())
+        })
       }
 
-      if (rest.length) {
-        const more = await readAllRegions(frame, rest)
-        collected.push(...more)
-        useOcrStore.getState().applyReadings(collected)
+      // Towers / series are not on the hot path — every 4th scan is enough
+      scanTickRef.current += 1
+      if (rest.length && scanTickRef.current % 4 === 0) {
+        const more = await readSnapshots(snapshotRegions(video, rest))
+        useOcrStore.getState().applyReadings(more)
       }
 
       useOcrStore.getState().setLastError('')
@@ -389,16 +397,15 @@ export default function OcrControlPanel({ onToast }: Props) {
     useOcrStore.getState().setRunning(true)
     useOcrStore.getState().setStatus('OCR running')
     onToast?.('OCR loop started — stats sync to the overlay')
-
+    loopActiveRef.current = true
+    // Self-scheduling: the next read waits for this one, so scans never pile up
     const tick = async () => {
-      if (!useOcrStore.getState().running) return
+      const started = performance.now()
       await runOnce()
-      if (!useOcrStore.getState().running) return
-      // Schedule after work finishes — no backlog / stacked delay
+      if (!loopActiveRef.current) return
       const ms = useOcrStore.getState().intervalMs
-      loopRef.current = window.setTimeout(() => {
-        void tick()
-      }, ms)
+      const wait = Math.max(80, ms - (performance.now() - started))
+      loopRef.current = window.setTimeout(() => void tick(), wait)
     }
     void tick()
   }
@@ -485,15 +492,23 @@ export default function OcrControlPanel({ onToast }: Props) {
             <div className="capture-status">
               {hasCapture
                 ? running
-                  ? 'OCR running — reading HUD'
-                  : status
-                : 'Share BlueStacks / game window, then map regions'}
+                  ? `OCR running · sharing to shoutcasters${viewers ? ` · ${viewers} watching` : ''}`
+                  : `${status}${viewers ? ` · ${viewers} watching` : ''}`
+                : 'Share BlueStacks / game window — shoutcasters get a live preview'}
             </div>
           </div>
         </div>
 
         <div ref={stageRef} className="capture-stage">
-          <video ref={videoRef} muted playsInline />
+          <video
+            ref={videoRef}
+            muted
+            playsInline
+            style={{
+              pointerEvents: 'none',
+              transform: 'translateZ(0)',
+            }}
+          />
           {hasCapture ? (
             <div
               style={{
@@ -568,8 +583,9 @@ export default function OcrControlPanel({ onToast }: Props) {
             <div className="capture-empty">
               <strong>Capture your game window</strong>
               <p>
-                Click <b>Capture window</b>, pick BlueStacks / App Player, select
-                a stat on the right, then drag a box over the digits.
+                Click <b>Select window</b>, open the <b>Window</b> tab, pick
+                BlueStacks / App Player, select a stat on the right, then drag a
+                box over the digits.
               </p>
             </div>
           )}
@@ -593,7 +609,7 @@ export default function OcrControlPanel({ onToast }: Props) {
               type="button"
               onClick={() => void startCapture()}
             >
-              {booting ? 'Loading Tesseract…' : 'Capture window'}
+              {booting ? 'Loading Tesseract…' : hasCapture ? 'Change window' : 'Select window'}
             </button>
           ) : (
             <button className="btn small" type="button" onClick={stopCapture}>
@@ -629,7 +645,7 @@ export default function OcrControlPanel({ onToast }: Props) {
             <span style={{ whiteSpace: 'nowrap' }}>Interval (sec)</span>
             <input
               type="number"
-              min={0.8}
+              min={0.6}
               max={15}
               step={0.2}
               value={intervalMs / 1000}
@@ -637,7 +653,7 @@ export default function OcrControlPanel({ onToast }: Props) {
                 useOcrStore
                   .getState()
                   .setIntervalMs(
-                    Math.round(Number(e.target.value) * 1000) || 1200,
+                    Math.round(Number(e.target.value) * 1000) || 2500,
                   )
               }
               style={{ width: 72 }}
@@ -682,7 +698,6 @@ export default function OcrControlPanel({ onToast }: Props) {
           title="Stat regions"
           list={statRegions}
           selectedField={selectedField}
-          lastReadings={lastReadings}
           onToast={onToast}
         />
         <p className="display-note" style={{ padding: '0 14px 14px', margin: 0 }}>

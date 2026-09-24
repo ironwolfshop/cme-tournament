@@ -65,3 +65,32 @@ export function getBlockTargets(
   if (!cur) return []
   return queue.filter((t) => t.blockIndex === cur.blockIndex)
 }
+
+/** True when every slot in this pick-block already has a hero. */
+export function isPickBlockComplete(
+  queue: PickTarget[],
+  picksBySide: Record<TeamSide, (string | null)[]>,
+  blockIndex: number,
+): boolean {
+  return queue
+    .filter((t) => t.blockIndex === blockIndex)
+    .every((t) => !!picksBySide[t.side][t.slot])
+}
+
+/**
+ * Broadcast overlay: single picks show immediately.
+ * Multi-pick blocks (×2) stay hidden until the whole block is locked.
+ */
+export function isPickVisibleOnOverlay(
+  queue: PickTarget[],
+  picksBySide: Record<TeamSide, (string | null)[]>,
+  side: TeamSide,
+  slot: number,
+): boolean {
+  const heroId = picksBySide[side][slot]
+  if (!heroId) return false
+  const target = queue.find((t) => t.side === side && t.slot === slot)
+  if (!target) return !!heroId
+  if (target.blockSize <= 1) return true
+  return isPickBlockComplete(queue, picksBySide, target.blockIndex)
+}

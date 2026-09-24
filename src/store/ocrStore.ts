@@ -4,6 +4,7 @@ import {
   isActiveOcrField,
   isKdaField,
   parseKdaField,
+  resetOcrCache,
   type OcrField,
   type OcrKda,
   type OcrReading,
@@ -48,7 +49,7 @@ type Actions = {
 }
 
 const STORAGE_KEY = 'mlbb-ocr-regions-v8'
-const INTERVAL_KEY = 'mlbb-ocr-interval-v1'
+const INTERVAL_KEY = 'mlbb-ocr-interval-v2'
 
 function loadRegions(): OcrRegion[] {
   try {
@@ -91,11 +92,11 @@ function saveRegions(regions: OcrRegion[]) {
 function loadIntervalMs() {
   try {
     const n = Number(localStorage.getItem(INTERVAL_KEY))
-    if (Number.isFinite(n) && n >= 800 && n <= 15000) return n
+    if (Number.isFinite(n) && n >= 600 && n <= 15000) return n
   } catch {
     /* ignore */
   }
-  return 1200
+  return 1000
 }
 
 function saveIntervalMs(ms: number) {
@@ -145,17 +146,113 @@ function isClean(reading: OcrReading): boolean {
   return /^\d{1,2}$/.test(raw)
 }
 
-function clockClose(next: number, current: number) {
-  const delta = next - current
-  return delta >= -4 && delta <= 25
+/** Every preprocess variant agreed and Tesseract was confident. */
+function isStrong(reading: OcrReading): boolean {
+  if (reading.field === 'blueKills' || reading.field === 'redKills') {
+    return (
+      reading.ok &&
+      reading.value != null &&
+      reading.confidence >= 58 &&
+      /^[\d\s.:]+$/.test(reading.raw)
+    )
+  }
+  const votes = reading.votes ?? 0
+  return (
+    votes >= 2 &&
+    votes === (reading.okAttempts ?? votes) &&
+    reading.confidence >= 75
+  )
 }
 
-/** Team kills almost only climb; allow tiny OCR rewind, block wild jumps. */
-function killClose(next: number, current: number) {
-  if (current <= 0) return next <= 30
-  if (next < current - 1) return false
-  if (next > current + 6) return false
-  return true
+/**
+ * MLBB clock advances 1s per second, so a read is trusted only when it
+ * matches the running prediction. A different value must be confirmed by a
+ * second read that is itself consistent with the elapsed wall time.
+ */
+const CLOCK_TOLERANCE_S = 1.6
+let clockModel: { value: number; at: number } | null = null
+let clockCandidate: { value: number; at: number } | null = null
+let clockStillSince: number | null = null
+
+function resetClockModel() {
+  clockModel = null
+  clockCandidate = null
+  clockStillSince = null
+}
+
+/** Returns the accepted clock + running state, or null to ignore the read. */
+function judgeClock(
+  value: number,
+  at: number,
+): { seconds: number; running: boolean } | null {
+  if (clockModel) {
+    const predicted = clockModel.value + (at - clockModel.at) / 1000
+    if (value === clockModel.value && at - clockModel.at > 1500) {
+      clockStillSince ??= clockModel.at
+      if (at - clockStillSince >= 3000) {
+        clockModel = { value, at }
+        clockCandidate = null
+        return { seconds: value, running: false }
+      }
+      return null
+    }
+    if (Math.abs(value - predicted) <= CLOCK_TOLERANCE_S) {
+      clockModel = { value, at }
+      clockCandidate = null
+      clockStillSince = null
+      return { seconds: value, running: true }
+    }
+  }
+  if (clockCandidate) {
+    const predicted = clockCandidate.value + (at - clockCandidate.at) / 1000
+    if (Math.abs(value - predicted) <= CLOCK_TOLERANCE_S) {
+      clockModel = { value, at }
+      clockCandidate = null
+      clockStillSince = null
+      return { seconds: value, running: true }
+    }
+  }
+  clockCandidate = { value, at }
+  return null
+}
+
+/**
+ * Counters that only climb during a game (kills, towers). Small steps up are
+ * accepted on a strong read or two consecutive identical reads; drops and big
+ * jumps (new game, manual correction) need three in a row.
+ */
+function judgeCounter(
+  next: number,
+  current: number,
+  locked: boolean,
+  hits: number,
+  strong: boolean,
+  maxStep: number,
+): boolean {
+  if (locked && next === current) return true
+  if (!locked) return hits >= 2 || (strong && next <= maxStep)
+  const delta = next - current
+  if (delta > 0 && delta <= maxStep) return strong || hits >= 2
+  return hits >= 3
+}
+
+/**
+ * Team kills should track as tightly as the clock: once locked, a +1/+2/+3
+ * on a clean parse applies immediately. Only wild jumps wait for repeats.
+ */
+function judgeKill(
+  next: number,
+  current: number,
+  locked: boolean,
+  hits: number,
+  strong: boolean,
+): boolean {
+  if (next === current) return true
+  if (!locked) return next === 0 || strong || hits >= 2
+  const delta = next - current
+  if (delta >= 1 && delta <= 3) return true
+  if (delta >= 4 && delta <= 6) return strong || hits >= 2
+  return hits >= 3
 }
 
 function goldClose(next: number, current: number) {
@@ -174,7 +271,7 @@ export const useOcrStore = create<OcrUiState & Actions>((set, get) => ({
   pending: {},
 
   setIntervalMs: (intervalMs) => {
-    const ms = Math.max(800, Math.min(15000, intervalMs))
+    const ms = Math.max(600, Math.min(15000, intervalMs))
     saveIntervalMs(ms)
     set({ intervalMs: ms })
   },
@@ -220,6 +317,8 @@ export const useOcrStore = create<OcrUiState & Actions>((set, get) => ({
     const pending = { ...get().pending }
     delete pending[id]
     lockedFields.delete(id)
+    resetOcrCache(id)
+    if (id === 'clock') resetClockModel()
     saveRegions(regions)
     set({
       regions,
@@ -233,6 +332,8 @@ export const useOcrStore = create<OcrUiState & Actions>((set, get) => ({
     const regions = defaultOcrRegions()
     saveRegions(regions)
     lockedFields.clear()
+    resetOcrCache()
+    resetClockModel()
     set({ regions, pending: {}, lastReadings: [], status: 'All maps cleared' })
   },
 
@@ -297,28 +398,47 @@ export const useOcrStore = create<OcrUiState & Actions>((set, get) => ({
 
       if (r.field === 'clock') {
         if (r.value < 0 || r.value > 80 * 60) continue
-        const locked = lockedFields.has('clock')
-        if (locked && !clockClose(r.value, gp.gameTimeSeconds) && hits < 2) {
-          continue
-        }
+        const verdict = judgeClock(r.value, r.at ?? performance.now())
+        if (!verdict) continue
         acceptField('clock')
-        gameTimeSeconds = r.value
-        timerRunning = true
+        gameTimeSeconds = verdict.seconds
+        timerRunning = verdict.running
         continue
       }
 
-      // Team kill counters — same sticky apply style as the clock
       if (r.field === 'blueKills' || r.field === 'redKills') {
         if (r.value < 0 || r.value > 99) continue
         const side = r.field === 'blueKills' ? 'blue' : 'red'
         const locked = lockedFields.has(r.field)
-        if (locked && !killClose(r.value, gp[side].kills) && hits < 2) {
+        if (!judgeKill(r.value, gp[side].kills, locked, hits, isStrong(r))) {
           continue
         }
-        // First lock: need a clean parse or a repeated identical read
-        if (!locked && !clean && !repeated) continue
         acceptField(r.field)
-        ;(side === 'blue' ? blue : red).kills = r.value
+        if (r.value !== gp[side].kills) (side === 'blue' ? blue : red).kills = r.value
+        continue
+      }
+
+      if (r.field === 'blueTowers' || r.field === 'redTowers') {
+        if (r.value < 0 || r.value > 11) continue
+        const side = r.field === 'blueTowers' ? 'blue' : 'red'
+        const locked = lockedFields.has(r.field)
+        if (!judgeCounter(r.value, gp[side].towers, locked, hits, isStrong(r), 2)) {
+          continue
+        }
+        acceptField(r.field)
+        if (r.value !== gp[side].towers) (side === 'blue' ? blue : red).towers = r.value
+        continue
+      }
+
+      // Series score only changes between games — always demand repeats
+      if (r.field === 'blueSeries' || r.field === 'redSeries') {
+        if (r.value < 0 || r.value > 5) continue
+        const side = r.field === 'blueSeries' ? 'blue' : 'red'
+        const current = gp[side].seriesScore
+        const locked = lockedFields.has(r.field)
+        if (!(locked && r.value === current) && hits < (locked ? 3 : 2)) continue
+        acceptField(r.field)
+        if (r.value !== current) (side === 'blue' ? blue : red).seriesScore = r.value
         continue
       }
 
@@ -332,29 +452,6 @@ export const useOcrStore = create<OcrUiState & Actions>((set, get) => ({
         acceptField(r.field)
         ;(side === 'blue' ? blue : red).gold = r.value
         continue
-      }
-
-      if (!clean && !repeated) continue
-
-      switch (r.field) {
-        case 'blueTowers':
-          acceptField(r.field)
-          blue.towers = Math.min(8, r.value)
-          break
-        case 'redTowers':
-          acceptField(r.field)
-          red.towers = Math.min(8, r.value)
-          break
-        case 'blueSeries':
-          acceptField(r.field)
-          blue.seriesScore = r.value
-          break
-        case 'redSeries':
-          acceptField(r.field)
-          red.seriesScore = r.value
-          break
-        default:
-          break
       }
     }
 
@@ -373,9 +470,15 @@ export const useOcrStore = create<OcrUiState & Actions>((set, get) => ({
 
     const merged = new Map(get().lastReadings.map((x) => [x.field, x]))
     for (const r of readings) merged.set(r.field, r)
+    const lastReadings = [...merged.values()]
+    // Do not rewrite status every tick — that re-renders the capture video
+    if (get().running) {
+      set({ lastReadings, pending })
+      return
+    }
     const good = readings.filter((x) => x.ok && isClean(x)).length
     set({
-      lastReadings: [...merged.values()],
+      lastReadings,
       pending,
       status: hasPatch
         ? `Overlay updated · ${applied} stats`

@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  cameraApiAvailable,
   createCamPublisher,
   isCamSlotId,
-  isInsecureCamContext,
   openCamera,
-  phoneCamHttpsUrl,
   type CamSlotId,
 } from '../lib/camWebRtc'
 import { ensureObsSync } from '../lib/obsSync'
@@ -17,7 +14,6 @@ import {
 
 /**
  * Phone/laptop join page — access code → pick slot → publish feed.
- * Camera requires a secure context (HTTPS :5174 on phones / LAN).
  */
 export default function CamJoinPage() {
   const store = useCamsStore()
@@ -27,32 +23,16 @@ export default function CamJoinPage() {
   const [live, setLive] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [httpsReady, setHttpsReady] = useState(() => cameraApiAvailable())
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const publisherRef = useRef<ReturnType<typeof createCamPublisher> | null>(null)
-  const phoneUrl = phoneCamHttpsUrl('/cam')
 
   useEffect(() => {
     ensureObsSync()
     initCamsSync()
     document.documentElement.style.background = '#071018'
     document.body.style.background = '#071018'
-  }, [])
-
-  // Auto-bounce insecure LAN HTTP → phone HTTPS so getUserMedia exists
-  useEffect(() => {
-    if (!isInsecureCamContext()) {
-      setHttpsReady(cameraApiAvailable())
-      return
-    }
-    const target = phoneCamHttpsUrl('/cam')
-    setError('Camera blocked on HTTP. Redirecting to secure cam link…')
-    const t = window.setTimeout(() => {
-      window.location.replace(target)
-    }, 600)
-    return () => window.clearTimeout(t)
   }, [])
 
   useEffect(() => {
@@ -75,13 +55,6 @@ export default function CamJoinPage() {
 
   async function publish() {
     if (!slot || !isCamSlotId(slot)) return
-    if (!cameraApiAvailable()) {
-      setError(
-        `Camera needs HTTPS — open ${phoneUrl} (accept the certificate warning once)`,
-      )
-      setHttpsReady(false)
-      return
-    }
     setBusy(true)
     setError(null)
     try {
@@ -140,8 +113,6 @@ export default function CamJoinPage() {
           ? store.casterName
           : ''
 
-  const showSecureGate = !httpsReady || isInsecureCamContext()
-
   return (
     <div className="min-h-screen bg-[#071018] px-4 py-8 text-white font-ui">
       <div className="mx-auto w-full max-w-md space-y-5">
@@ -153,27 +124,7 @@ export default function CamJoinPage() {
           <p className="mt-1 text-sm text-slate-400">{store.matchName}</p>
         </div>
 
-        {showSecureGate ? (
-          <div className="space-y-4 rounded-2xl border border-amber-500/40 bg-amber-950/40 p-5 text-center">
-            <p className="text-sm leading-relaxed text-amber-100">
-              Camera publish only works over <b>HTTPS</b> (port 5174). HTTP LAN
-              links hide the camera API and break Publish feed.
-            </p>
-            <a
-              href={phoneUrl}
-              className="block w-full rounded-xl bg-emerald-600 py-3.5 text-lg font-bold hover:bg-emerald-500"
-            >
-              Open secure cam link
-            </a>
-            <p className="break-all text-xs text-amber-200/80">{phoneUrl}</p>
-            <p className="text-xs text-slate-400">
-              Accept the certificate warning once, then publish again.
-            </p>
-            {error && (
-              <p className="text-center text-sm text-rose-300">{error}</p>
-            )}
-          </div>
-        ) : !unlocked ? (
+        {!unlocked ? (
           <form
             onSubmit={unlock}
             className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5"

@@ -1,16 +1,10 @@
 import { useMemo } from 'react'
-import {
-  buildPickQueue,
-  PICK_BLOCKS,
-  type PickTarget,
-} from '../../data/pickOrder'
+import { buildPickQueue, PICK_BLOCKS } from '../../data/pickOrder'
 import type { DraftPhase, TeamSide } from '../../store/draftStore'
 
 type Props = {
   matchLabel: string
   phase: DraftPhase
-  timerSeconds: number
-  timerDuration?: number
   activeSide: TeamSide
   activeSlot: number
   firstPickSide: TeamSide
@@ -25,8 +19,6 @@ type Props = {
 export default function DraftCenter({
   matchLabel,
   phase,
-  timerSeconds,
-  timerDuration = 30,
   activeSide,
   activeSlot,
   firstPickSide,
@@ -54,22 +46,7 @@ export default function DraftCenter({
       : 'var(--bo-red)'
     : 'var(--bo-gold)'
 
-  const urgent = timerSeconds <= 10 && phase !== 'done'
-  const expired = timerSeconds === 0 && phase !== 'done'
   const completed = phase === 'done'
-  const fillPct = completed
-    ? 100
-    : Math.max(0, Math.min(100, (timerSeconds / timerDuration) * 100))
-
-  const clockCaption = completed
-    ? 'BOTH TEAMS READY'
-    : phase === 'ban' && lockedCount >= 10
-      ? 'READY FOR PICKS'
-      : 'SECONDS REMAINING'
-
-  const clockDigits = completed
-    ? '✓'
-    : String(timerSeconds).padStart(2, '0')
 
   const groups = useMemo(() => {
     const result: { count: number; side: TeamSide; indices: number[] }[] = []
@@ -84,24 +61,6 @@ export default function DraftCenter({
     return result
   }, [firstPickSide])
 
-  function stepState(indices: number[]) {
-    if (phase !== 'pick') {
-      const done = indices.every((i) => {
-        const t = queue[i]
-        return t && lockedPick(t)
-      })
-      return { current: false, done }
-    }
-    const current = indices.some((i) => {
-      const t = queue[i]
-      return t && t.side === activeSide && t.slot === activeSlot
-    })
-    // For sequence "done" we need picks filled — parent passes lockedCount for bans/picks
-    // Sequence done is computed via a callback from parent; approximate with queue index
-    return { current, done: false }
-  }
-
-  // Done state per group: all pick slots in that block have been passed
   const pickOrderIndex = useMemo(() => {
     if (phase !== 'pick') return -1
     return queue.findIndex((t) => t.side === activeSide && t.slot === activeSlot)
@@ -119,18 +78,24 @@ export default function DraftCenter({
           {turnText}
         </div>
 
-        <div className="timer-row">
+        <div className="timer-row no-clock">
           <div className="center-team">
             <span className="center-badge">{blueTag.slice(0, 3)}</span>
             <span className="center-code">{blueTag}</span>
             <span className="series-label">BLUE SIDE</span>
           </div>
 
-          <div
-            className={`clock ${urgent && !expired ? 'expiring' : ''} ${expired ? 'expired' : ''}`}
-          >
-            <div className="clock-digits">{clockDigits}</div>
-            <small>{clockCaption}</small>
+          <div className="status-center">
+            <div className="status-digits">
+              {completed ? '✓' : phase === 'ban' ? 'BAN' : 'PICK'}
+            </div>
+            <small>
+              {completed
+                ? 'BOTH TEAMS READY'
+                : hasTurn
+                  ? `SLOT ${String(activeSlot + 1).padStart(2, '0')}`
+                  : 'STANDBY'}
+            </small>
           </div>
 
           <div className="center-team red">
@@ -138,14 +103,6 @@ export default function DraftCenter({
             <span className="center-code">{redTag}</span>
             <span className="series-label">RED SIDE</span>
           </div>
-        </div>
-
-        <div className="countdown-track">
-          <div className="countdown for-css" style={{ display: 'none' }} />
-          <div
-            className="countdown-fill"
-            style={{ width: `${fillPct}%` }}
-          />
         </div>
 
         <div className="pick-count">
@@ -164,8 +121,7 @@ export default function DraftCenter({
       <div className="sequence" aria-label="Pick order">
         {groups.map((g, gi) => {
           const current =
-            phase === 'pick' &&
-            g.indices.some((i) => i === pickOrderIndex)
+            phase === 'pick' && g.indices.some((i) => i === pickOrderIndex)
           const done =
             phase === 'pick'
               ? g.indices.every((i) => i < pickOrderIndex)
@@ -184,16 +140,4 @@ export default function DraftCenter({
       <div className="sequence-label">PICK SEQUENCE</div>
     </div>
   )
-}
-
-function lockedPick(_t: PickTarget) {
-  return false
-}
-
-// silence unused helper warning path — stepState kept for clarity but unused
-void stepState
-function stepState(
-  _indices: number[],
-): { current: boolean; done: boolean } {
-  return { current: false, done: false }
 }

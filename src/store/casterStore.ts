@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { loadJson, loadJsonSync, saveJsonFire } from '../lib/appStorage'
 import { fetchSync, pushSync, subscribeSync } from '../lib/obsSync'
 
 export type CasterPerson = {
@@ -28,25 +29,22 @@ let channel: BroadcastChannel | null = null
 
 function defaults(): CasterState {
   return {
-    showTitle: 'SHOUTCASTERS',
+    showTitle: 'SHOUTCASTER',
     caster1: { name: '', role: 'Play-by-play', visible: true },
     caster2: { name: '', role: 'Color', visible: true },
   }
 }
 
 function loadStored(): CasterState | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('mlbb-casters-v1')
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<CasterState>
-    const d = defaults()
-    return {
-      showTitle: typeof parsed.showTitle === 'string' ? parsed.showTitle : d.showTitle,
-      caster1: { ...d.caster1, ...(parsed.caster1 ?? {}) },
-      caster2: { ...d.caster2, ...(parsed.caster2 ?? {}) },
-    }
-  } catch {
-    return null
+  const parsed =
+    loadJsonSync<Partial<CasterState>>(STORAGE_KEY) ??
+    loadJsonSync<Partial<CasterState>>('mlbb-casters-v1')
+  if (!parsed) return null
+  const d = defaults()
+  return {
+    showTitle: typeof parsed.showTitle === 'string' ? parsed.showTitle : d.showTitle,
+    caster1: { ...d.caster1, ...(parsed.caster1 ?? {}) },
+    caster2: { ...d.caster2, ...(parsed.caster2 ?? {}) },
   }
 }
 
@@ -67,11 +65,7 @@ function getChannel() {
 function push(state: CasterState) {
   if (applyingRemote) return
   const data = snapshot(state)
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-  } catch {
-    /* ignore */
-  }
+  saveJsonFire(STORAGE_KEY, data)
   getChannel()?.postMessage({ type: 'casters', payload: data })
   pushSync('casters', data)
 }
@@ -108,6 +102,8 @@ export function initCasterSync() {
     useCasterStore.getState().hydrate(payload as CasterState)
   }
 
+  void loadJson<CasterState>(STORAGE_KEY).then(applyRemote)
+
   getChannel()?.addEventListener('message', (event: MessageEvent) => {
     const data = event.data
     if (data?.type === 'casters' && data.payload) applyRemote(data.payload)
@@ -128,17 +124,14 @@ export function initCasterSync() {
   })
 
   subscribeSync('casters', applyRemote)
-  const isControl =
+  void fetchSync('casters').then(applyRemote)
+
+  if (
     typeof window !== 'undefined' &&
     window.location.pathname.includes('/control')
-
-  void fetchSync('casters').then((payload) => {
-    if (payload && typeof payload === 'object') {
-      applyRemote(payload)
-      return
-    }
-    if (isControl) {
+  ) {
+    window.setTimeout(() => {
       pushSync('casters', snapshot(useCasterStore.getState()))
-    }
-  })
+    }, 50)
+  }
 }

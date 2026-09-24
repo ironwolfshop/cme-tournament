@@ -1,0 +1,993 @@
+/* CME gameplay HUD — /overlay/game. Same visual language as the pick stage
+   (pick-stage.css). Rules are scoped under .cme-go .gx-root so they outrank the
+   generic .cme-go rules in gameplay-stage.css / cme-overrides.css. */
+
+.cme-go .gx-root {
+  --gold: #f6c453;
+  --gold-hi: #ffe6a3;
+  --blue: #7cbaff;
+  --red: #ff8a99;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  font-family: 'Rajdhani', 'Exo 2', 'Segoe UI', sans-serif;
+  line-height: 1.1;
+  color: #f4f7fc;
+  pointer-events: none;
+}
+
+.cme-go .gx-root .side-blue {
+  --c: #2f7bff;
+  --c-hi: #7cbaff;
+  --c-deep: #06184a;
+  --c-rgb: 47, 123, 255;
+}
+
+.cme-go .gx-root .side-red {
+  --c: #ff2d4a;
+  --c-hi: #ff8a99;
+  --c-deep: #4c0714;
+  --c-rgb: 255, 45, 74;
+}
+
+.cme-go .gx-root svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.cme-go .gx-root .gx-anchor {
+  display: inline-block;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--c-hi, var(--gold-hi));
+  filter: drop-shadow(0 0 5px var(--c, var(--gold)));
+}
+
+/* ───────────────────────── Scoreboard ───────────────────────── */
+
+.cme-go .gx-root .gx-board {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  transform: translateX(-50%);
+  animation: gxDrop 0.8s both;
+}
+
+.cme-go .gx-root .gx-plate {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 452px;
+  height: 88px;
+  padding: 0 18px 0 12px;
+  isolation: isolate;
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+  background: linear-gradient(135deg, var(--c-hi), rgba(var(--c-rgb), 0.35) 40%, rgba(var(--c-rgb), 0.35) 60%, var(--c-hi));
+}
+
+.cme-go .gx-root .gx-plate.side-red {
+  flex-direction: row-reverse;
+  padding: 0 12px 0 18px;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+}
+
+.cme-go .gx-root .gx-plate::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  clip-path: inherit;
+  background:
+    radial-gradient(ellipse 70% 90% at 0% 50%, rgba(var(--c-rgb), 0.38), transparent 70%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 12px),
+    linear-gradient(180deg, rgba(10, 22, 52, 0.95), rgba(5, 11, 28, 0.97));
+}
+
+.cme-go .gx-root .gx-plate.side-red::before {
+  background:
+    radial-gradient(ellipse 70% 90% at 100% 50%, rgba(var(--c-rgb), 0.38), transparent 70%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 12px),
+    linear-gradient(180deg, rgba(10, 22, 52, 0.95), rgba(5, 11, 28, 0.97));
+}
+
+.cme-go .gx-root .gx-plate::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -30%;
+  width: 30%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  box-shadow: 0 0 10px #fff;
+  animation: gxEdgeRun 5s linear infinite;
+}
+
+.cme-go .gx-root .gx-plate.side-red::after {
+  animation-delay: -2.5s;
+}
+
+.cme-go .gx-root .gx-crest {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 62px;
+  height: 62px;
+  overflow: hidden;
+  background: linear-gradient(145deg, var(--c), var(--c-deep));
+  box-shadow: inset 0 0 0 2px var(--c-hi), 0 0 16px rgba(var(--c-rgb), 0.55);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.cme-go .gx-root .gx-crest img {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+}
+
+.cme-go .gx-root .gx-crest b {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-weight: 400;
+  font-size: 26px;
+  color: #fff;
+}
+
+.cme-go .gx-root .gx-plate-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cme-go .gx-root .side-red .gx-plate-info {
+  text-align: right;
+}
+
+.cme-go .gx-root .gx-plate-name {
+  overflow: hidden;
+  font-family: 'Exo 2', 'Rajdhani', sans-serif;
+  font-weight: 800;
+  font-size: 23px;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #fff;
+  text-shadow: 0 0 14px rgba(var(--c-rgb), 0.8);
+}
+
+.cme-go .gx-root .gx-plate-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.cme-go .gx-root .side-red .gx-plate-meta {
+  flex-direction: row-reverse;
+}
+
+.cme-go .gx-root .gx-plate-tag {
+  max-width: 110px;
+  overflow: hidden;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--c-hi);
+}
+
+.cme-go .gx-root .gx-plate-side {
+  flex: none;
+  padding: 2px 7px;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: rgba(230, 238, 252, 0.75);
+  border: 1px solid rgba(var(--c-rgb), 0.55);
+}
+
+.cme-go .gx-root .gx-plate-stats {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.cme-go .gx-root .side-red .gx-plate-stats {
+  align-items: flex-start;
+}
+
+.cme-go .gx-root .gx-series {
+  display: flex;
+  gap: 5px;
+}
+
+.cme-go .gx-root .gx-series i {
+  width: 22px;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(var(--c-rgb), 0.55);
+  transform: skewX(-24deg);
+}
+
+.cme-go .gx-root .gx-series i.won {
+  background: linear-gradient(90deg, var(--gold), var(--gold-hi));
+  box-shadow: 0 0 10px rgba(246, 196, 83, 0.8);
+}
+
+.cme-go .gx-root .gx-towers {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  color: rgba(226, 234, 250, 0.8);
+}
+
+.cme-go .gx-root .gx-towers svg {
+  width: 16px;
+  height: 16px;
+  color: var(--c-hi);
+}
+
+.cme-go .gx-root .gx-towers strong {
+  font-size: 20px;
+  color: #fff;
+}
+
+.cme-go .gx-root .gx-towers small {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+}
+
+.cme-go .gx-root .gx-kills {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 88px;
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 40%, rgba(var(--c-rgb), 0.55), transparent 75%),
+    linear-gradient(180deg, var(--c-deep), #030712);
+  box-shadow: inset 0 0 0 2px var(--c-hi), 0 0 20px rgba(var(--c-rgb), 0.45);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+}
+
+.cme-go .gx-root .gx-kills.side-red {
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+.cme-go .gx-root .gx-kills b {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-weight: 400;
+  font-size: 58px;
+  line-height: 0.9;
+  color: #fff;
+  text-shadow: 0 0 16px rgba(var(--c-rgb), 1), 0 3px 0 rgba(0, 0, 0, 0.4);
+  animation: gxPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.cme-go .gx-root .gx-kills small {
+  margin-top: 2px;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: var(--c-hi);
+}
+
+.cme-go .gx-root .gx-core {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 224px;
+  height: 118px;
+  padding: 8px 0 0;
+  isolation: isolate;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 22px 100%, 0 calc(100% - 22px));
+  background: linear-gradient(90deg, #7cbaff, var(--gold-hi) 50%, #ff8a99);
+}
+
+.cme-go .gx-root .gx-core::before {
+  content: '';
+  position: absolute;
+  inset: 0 2px 2px;
+  z-index: -1;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 21px), calc(100% - 21px) 100%, 21px 100%, 0 calc(100% - 21px));
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 20%, rgba(246, 196, 83, 0.22), transparent 70%),
+    linear-gradient(180deg, rgba(12, 24, 56, 0.96), rgba(5, 11, 28, 0.98));
+}
+
+.cme-go .gx-root .gx-seals {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+}
+
+.cme-go .gx-root .gx-seal {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+}
+
+.cme-go .gx-root .gx-seal.center {
+  width: 40px;
+  height: 40px;
+}
+
+.cme-go .gx-root .gx-seal::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent, rgba(246, 196, 83, 0.9), transparent 35%, transparent 55%, rgba(124, 186, 255, 0.9), transparent 85%);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 65%, #000 70%, transparent 73%);
+  mask: radial-gradient(circle, transparent 62%, #000 65%, #000 70%, transparent 73%);
+  animation: gxSpin 6s linear infinite;
+}
+
+.cme-go .gx-root .gx-seal img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cme-go .gx-root .gx-clock {
+  margin-top: 2px;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  color: transparent;
+  background:
+    linear-gradient(100deg, transparent 40%, #fff 50%, transparent 60%) -150% 0 / 250% 100% no-repeat,
+    linear-gradient(180deg, #fff 0%, var(--gold-hi) 48%, var(--gold) 54%, #fff3cf 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 0 10px rgba(246, 196, 83, 0.45));
+  animation: gxShine 4s ease-in-out infinite;
+}
+
+.cme-go .gx-root .gx-clock-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1px;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: rgba(200, 212, 236, 0.7);
+}
+
+.cme-go .gx-root .gx-clock-state i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(200, 212, 236, 0.45);
+}
+
+.cme-go .gx-root .gx-clock-state.live {
+  color: var(--gold-hi);
+}
+
+.cme-go .gx-root .gx-clock-state.live i {
+  background: #ff3b55;
+  box-shadow: 0 0 8px #ff3b55;
+  animation: gxBlink 1.2s ease-in-out infinite;
+}
+
+/* ───────────────────────── Match ribbon ───────────────────────── */
+
+.cme-go .gx-root .gx-ribbon {
+  position: absolute;
+  left: 50%;
+  top: 136px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 760px;
+  padding: 5px 30px;
+  transform: translateX(-50%);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+  color: rgba(214, 224, 244, 0.9);
+  background: rgba(5, 11, 28, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(150, 175, 220, 0.35);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 12px 100%);
+  animation: gxFade 0.8s 0.3s both;
+}
+
+.cme-go .gx-root .gx-ribbon.solo {
+  top: 14px;
+}
+
+.cme-go .gx-root .gx-ribbon .gx-anchor {
+  width: 14px;
+  height: 14px;
+}
+
+.cme-go .gx-root .gx-ribbon-info {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ───────────────────────── Map frame ───────────────────────── */
+
+.cme-go .gx-root .gx-map {
+  position: absolute;
+  left: 50%;
+  top: 172px;
+  display: grid;
+  place-items: center;
+  width: 220px;
+  height: 124px;
+  padding: 2px;
+  transform: translateX(-50%);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  background: linear-gradient(135deg, #7cbaff, rgba(150, 175, 220, 0.4) 50%, #ff8a99);
+}
+
+.cme-go .gx-root .gx-map img,
+.cme-go .gx-root .gx-map span {
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+}
+
+.cme-go .gx-root .gx-map img {
+  object-fit: cover;
+}
+
+.cme-go .gx-root .gx-map span {
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: rgba(214, 224, 244, 0.75);
+  background: rgba(5, 11, 28, 0.9);
+}
+
+/* ───────────────────────── Feed cards ───────────────────────── */
+
+.cme-go .gx-root .gx-feed {
+  position: absolute;
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  padding: 2px;
+  isolation: isolate;
+  clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+  background: linear-gradient(135deg, var(--c-hi), rgba(var(--c-rgb), 0.35) 40%, rgba(var(--c-rgb), 0.35) 60%, var(--c-hi));
+}
+
+.cme-go .gx-root .gx-feed.side-blue {
+  left: 22px;
+  animation: gxSlideL 0.9s 0.2s both;
+}
+
+.cme-go .gx-root .gx-feed.side-red {
+  right: 22px;
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+  animation: gxSlideR 0.9s 0.2s both;
+}
+
+.cme-go .gx-root .gx-feed::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  clip-path: inherit;
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(var(--c-rgb), 0.3), transparent 70%),
+    linear-gradient(180deg, rgba(10, 22, 52, 0.95), rgba(5, 11, 28, 0.97));
+}
+
+.cme-go .gx-root .gx-feed::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -30%;
+  width: 30%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  box-shadow: 0 0 10px #fff;
+  animation: gxEdgeRun 4.5s linear infinite;
+}
+
+.cme-go .gx-root .gx-feed.side-red::after {
+  animation-delay: -2.25s;
+}
+
+.cme-go .gx-root .gx-feed-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding: 0 12px 0 20px;
+}
+
+.cme-go .gx-root .side-red .gx-feed-head {
+  flex-direction: row-reverse;
+  padding: 0 20px 0 12px;
+}
+
+.cme-go .gx-root .gx-feed-team {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-family: 'Exo 2', 'Rajdhani', sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--c-hi);
+  text-shadow: 0 0 12px rgba(var(--c-rgb), 0.7);
+}
+
+.cme-go .gx-root .side-red .gx-feed-team {
+  text-align: right;
+}
+
+.cme-go .gx-root .gx-feed-status {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: rgba(214, 224, 244, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(150, 175, 220, 0.4);
+}
+
+.cme-go .gx-root .gx-feed-status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(200, 212, 236, 0.5);
+}
+
+.cme-go .gx-root .gx-feed-status.live {
+  color: #fff;
+  background: rgba(255, 45, 74, 0.25);
+  box-shadow: inset 0 0 0 1px #ff3b55;
+}
+
+.cme-go .gx-root .gx-feed-status.live i {
+  background: #ff3b55;
+  box-shadow: 0 0 8px #ff3b55;
+  animation: gxBlink 1.2s ease-in-out infinite;
+}
+
+.cme-go .gx-root .gx-feed-screen {
+  position: relative;
+  height: 212px;
+  margin: 0 8px;
+  overflow: hidden;
+  background: var(--c-deep);
+  box-shadow: inset 0 0 0 1.5px rgba(var(--c-rgb), 0.55);
+}
+
+.cme-go .gx-root .gx-feed-screen > * {
+  position: absolute;
+}
+
+.cme-go .gx-root .gx-feed-bg {
+  inset: 0;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 12px),
+    radial-gradient(ellipse 90% 70% at 50% 45%, rgba(var(--c-rgb), 0.35), transparent 70%),
+    linear-gradient(180deg, rgba(var(--c-rgb), 0.18), var(--c-deep) 60%, #030712);
+  background-size: 34px 34px, 100% 100%, 100% 100%;
+  animation: gxBgSlide 6s linear infinite;
+}
+
+.cme-go .gx-root .gx-feed-cme {
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 150px;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(var(--c-rgb), 0.9));
+  opacity: 0.5;
+}
+
+.cme-go .gx-root .gx-feed-cme span {
+  color: rgba(var(--c-rgb), 0.08);
+  -webkit-text-stroke: 1.4px var(--c-hi);
+  animation: gxCmeGlow 2.8s ease-in-out infinite;
+}
+
+.cme-go .gx-root .gx-feed-cme span:nth-child(2) { animation-delay: -0.9s; }
+.cme-go .gx-root .gx-feed-cme span:nth-child(3) { animation-delay: -1.8s; }
+
+.cme-go .gx-root .gx-feed-wait {
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.cme-go .gx-root .gx-feed-wait img {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 14px rgba(var(--c-rgb), 0.9)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
+  animation: gxFloat 5s ease-in-out infinite;
+}
+
+.cme-go .gx-root .gx-feed-wait b {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-weight: 400;
+  font-size: 44px;
+  letter-spacing: 0.08em;
+  padding: 4px 14px;
+  color: #fff;
+  background: rgba(3, 8, 22, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(var(--c-rgb), 0.6), 0 0 18px rgba(var(--c-rgb), 0.55);
+}
+
+.cme-go .gx-root .gx-feed-wait > span {
+  display: flex;
+  align-items: baseline;
+  padding: 4px 12px;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  color: rgba(226, 234, 250, 0.85);
+  background: rgba(3, 8, 22, 0.65);
+}
+
+.cme-go .gx-root .gx-dots {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 3px;
+}
+
+.cme-go .gx-root .gx-dots i {
+  width: 3px;
+  height: 3px;
+  background: currentColor;
+  animation: gxBlink 1.2s ease-in-out infinite;
+}
+
+.cme-go .gx-root .gx-dots i:nth-child(2) { animation-delay: 0.2s; }
+.cme-go .gx-root .gx-dots i:nth-child(3) { animation-delay: 0.4s; }
+
+.cme-go .gx-root .gx-feed-screen video {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+.cme-go .gx-root .gx-feed-screen video.on {
+  opacity: 1;
+}
+
+.cme-go .gx-root .gx-feed-corner {
+  z-index: 3;
+  width: 18px;
+  height: 18px;
+  border: 0 solid var(--c-hi);
+  filter: drop-shadow(0 0 4px var(--c));
+}
+
+.cme-go .gx-root .gx-feed-corner.tl { top: 6px; left: 6px; border-width: 2px 0 0 2px; }
+.cme-go .gx-root .gx-feed-corner.tr { top: 6px; right: 6px; border-width: 2px 2px 0 0; }
+.cme-go .gx-root .gx-feed-corner.bl { bottom: 6px; left: 6px; border-width: 0 0 2px 2px; }
+.cme-go .gx-root .gx-feed-corner.br { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
+
+.cme-go .gx-root .gx-feed-scan {
+  z-index: 2;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 50px;
+  background: linear-gradient(180deg, transparent, rgba(var(--c-rgb), 0.25) 80%, rgba(255, 255, 255, 0.35));
+  animation: gxScan 3.6s linear infinite;
+}
+
+.cme-go .gx-root .gx-feed.is-live .gx-feed-scan {
+  opacity: 0;
+  animation: none;
+}
+
+.cme-go .gx-root .gx-feed-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 20px 0 10px;
+}
+
+.cme-go .gx-root .side-red .gx-feed-foot {
+  flex-direction: row-reverse;
+  padding: 0 10px 0 20px;
+}
+
+.cme-go .gx-root .gx-feed-hero {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1.5px var(--c-hi);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+
+.cme-go .gx-root .gx-feed-hero img,
+.cme-go .gx-root .gx-feed-hero > * {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cme-go .gx-root .gx-feed-player {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cme-go .gx-root .side-red .gx-feed-player {
+  text-align: right;
+}
+
+.cme-go .gx-root .gx-feed-player b,
+.cme-go .gx-root .gx-feed-player small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cme-go .gx-root .gx-feed-player b {
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-weight: 400;
+  font-size: 24px;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 12px rgba(var(--c-rgb), 0.9);
+}
+
+.cme-go .gx-root .gx-feed-player small {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--c-hi);
+}
+
+.cme-go .gx-root .gx-feed-bpm {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 22px;
+  color: #fff;
+}
+
+.cme-go .gx-root .gx-feed-bpm svg {
+  width: 16px;
+  height: 16px;
+  color: #ff3b55;
+  fill: #ff3b55;
+  animation: gxBeat var(--beat, 0.8s) ease-in-out infinite;
+}
+
+/* ───────────────────────── Logo carousel ───────────────────────── */
+
+.cme-go .gx-root .gx-carousel {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  width: 1060px;
+  height: 64px;
+  padding: 2px;
+  transform: translateX(-50%);
+  isolation: isolate;
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 14px 100%, 0 50%);
+  background: linear-gradient(90deg, #7cbaff, rgba(150, 175, 220, 0.35) 30%, var(--gold-hi) 50%, rgba(150, 175, 220, 0.35) 70%, #ff8a99);
+  animation: gxFade 0.8s 0.4s both;
+}
+
+.cme-go .gx-root .gx-carousel::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  clip-path: polygon(13px 0, calc(100% - 13px) 0, 100% 50%, calc(100% - 13px) 100%, 13px 100%, 0 50%);
+  background:
+    radial-gradient(ellipse 30% 120% at 0% 50%, rgba(47, 123, 255, 0.3), transparent 70%),
+    radial-gradient(ellipse 30% 120% at 100% 50%, rgba(255, 45, 74, 0.3), transparent 70%),
+    linear-gradient(180deg, rgba(10, 22, 52, 0.94), rgba(5, 11, 28, 0.97));
+}
+
+.cme-go .gx-root .gx-carousel-view {
+  height: 100%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+
+.cme-go .gx-root .gx-carousel-track {
+  display: flex;
+  width: max-content;
+  height: 100%;
+  animation: gxMarquee calc(var(--n, 7) * 5s) linear infinite;
+}
+
+.cme-go .gx-root .gx-carousel-run {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 44px;
+  padding-right: 44px;
+}
+
+.cme-go .gx-root .gx-carousel-logo {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+}
+
+.cme-go .gx-root .gx-carousel-logo img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(246, 196, 83, 0.45));
+}
+
+.cme-go .gx-root .gx-carousel-logo.side-blue img,
+.cme-go .gx-root .gx-carousel-logo.side-red img {
+  filter: drop-shadow(0 0 8px rgba(var(--c-rgb), 0.9));
+}
+
+.cme-go .gx-root .gx-carousel-logo > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.cme-go .gx-root .gx-carousel-logo b {
+  font-family: 'Exo 2', 'Rajdhani', sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.cme-go .gx-root .gx-carousel-logo small {
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-hi, rgba(214, 224, 244, 0.7));
+}
+
+.cme-go .gx-root .gx-carousel-title {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 28px;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  color: var(--gold-hi);
+  text-shadow: 0 0 12px rgba(246, 196, 83, 0.55);
+}
+
+.cme-go .gx-root .gx-carousel-title .gx-anchor {
+  width: 18px;
+  height: 18px;
+}
+
+/* ───────────────────────── Event call ───────────────────────── */
+
+.cme-go .gx-root .event-call {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  z-index: 30;
+  min-width: 460px;
+  padding: 22px 44px 20px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(246, 196, 83, 0.22), transparent 70%),
+    linear-gradient(180deg, rgba(12, 24, 56, 0.96), rgba(5, 11, 28, 0.98));
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 2px var(--gold), 0 0 40px rgba(246, 196, 83, 0.35);
+  clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+  animation: gxCall 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.cme-go .gx-root .event-call small {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.3em;
+}
+
+.cme-go .gx-root .event-call b {
+  display: block;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-weight: 400;
+  font-size: 64px;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  color: transparent;
+  background:
+    linear-gradient(100deg, transparent 40%, #fff 50%, transparent 60%) -150% 0 / 250% 100% no-repeat,
+    linear-gradient(180deg, #fff 0%, var(--gold-hi) 48%, var(--gold) 54%, #fff3cf 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 0 14px rgba(246, 196, 83, 0.5));
+  animation: gxShine 2.4s ease-in-out infinite;
+}
+
+.cme-go .gx-root .event-call span {
+  display: block;
+  margin-top: 8px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.18em;
+  color: rgba(214, 224, 244, 0.9);
+}
+
+/* ───────────────────────── Keyframes ───────────────────────── */
+
+@keyframes gxDrop { from { opacity: 0; transform: translate(-50%, -40px); } }
+@keyframes gxFade { from { opacity: 0; } }
+@keyframes gxSlideL { from { opacity: 0; transform: translateX(-120px); } }
+@keyframes gxSlideR { from { opacity: 0; transform: translateX(120px); } }
+@keyframes gxSpin { to { rotate: 360deg; } }
+@keyframes gxEdgeRun { 0% { left: -30%; } 60%, 100% { left: 110%; } }
+@keyframes gxShine { 0%, 35% { background-position: -150% 0, 0 0; } 75%, 100% { background-position: 250% 0, 0 0; } }
+@keyframes gxBlink { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+@keyframes gxPop { from { opacity: 0; transform: scale(1.5); } }
+@keyframes gxBgSlide { to { background-position: 34px 34px, 0 0, 0 0; } }
+@keyframes gxCmeGlow { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes gxFloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
+@keyframes gxScan { 0% { transform: translateY(-50px); } 100% { transform: translateY(230px); } }
+@keyframes gxBeat { 0%, 100% { scale: 1; } 20% { scale: 1.25; } 40% { scale: 1; } }
+@keyframes gxMarquee { to { transform: translateX(-50%); } }
+@keyframes gxCall { from { opacity: 0; transform: translate(-50%, -50%) scale(1.3); } }

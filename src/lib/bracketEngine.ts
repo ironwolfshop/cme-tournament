@@ -40,13 +40,27 @@ export function nextPowerOfTwo(n: number): number {
   return Math.max(2, p)
 }
 
+/** Classic single-elim seed placement order (1-indexed seeds). */
+export function seedPositions(size: number): number[] {
+  let order = [1, 2]
+  for (let n = 4; n <= size; n *= 2) {
+    order = order.flatMap((seed) => [seed, n + 1 - seed])
+  }
+  return order
+}
+
 export function roundLabel(round: number, bracketSize: number): string {
   const teamsInRound = bracketSize / 2 ** round
-  if (teamsInRound === 2) return 'GRAND FINAL'
-  if (teamsInRound === 4) return 'SEMI FINALS'
-  if (teamsInRound === 8) return 'QUARTER FINALS'
-  if (teamsInRound === 16) return 'ROUND OF 16'
-  return `ROUND ${round + 1}`
+  if (teamsInRound === 2) return 'Grand Final'
+  if (teamsInRound === 4) return 'Semifinals'
+  // Only call it Quarterfinals when a Round of 16 (or larger) comes first.
+  if (teamsInRound === 8) {
+    return bracketSize > 8 ? 'Quarterfinals' : 'Round 1'
+  }
+  if (teamsInRound === 16) return 'Round of 16'
+  if (teamsInRound === 32) return 'Round of 32'
+  if (round === 0) return 'Round 1'
+  return `Round of ${teamsInRound}`
 }
 
 function id() {
@@ -91,42 +105,40 @@ export function buildEmptyBracket(bracketSize: number): BracketMatch[] {
 }
 
 /**
- * Seed teams into round 0. Extra bracket slots become BYEs
- * (auto-advance the present team).
+ * Seed teams into round 0 only.
+ * - Pack adjacent slots so as many real head-to-head fights as possible
+ * - Nobody is placed into later rounds
+ * - No winners / scores / live flags — every match starts pending
  */
 export function seedTeamsIntoBracket(
   teams: BracketTeam[],
   bracketSize: number,
 ): BracketMatch[] {
-  const matches = buildEmptyBracket(bracketSize)
+  const matches = buildEmptyBracket(bracketSize).map((m) => ({
+    ...m,
+    teamAId: null as string | null,
+    teamBId: null as string | null,
+    winnerId: null as string | null,
+    scoreA: 0,
+    scoreB: 0,
+    status: 'pending' as MatchStatus,
+  }))
   const sorted = [...teams].sort((a, b) => a.seed - b.seed)
   const slots: (string | null)[] = Array.from({ length: bracketSize }, () => null)
 
-  // Standard seeding pairs: 1 vs N, 2 vs N-1, ...
-  const order = seedingOrder(bracketSize)
+  // Adjacent packing: 1v2, 3v4, … so teams fight each other in Round 1.
+  // (Classic spread seeding left many "Awaiting team" / BYE ghosts.)
   sorted.forEach((t, i) => {
-    if (i < order.length) slots[order[i]] = t.id
+    if (i < bracketSize) slots[i] = t.id
   })
 
   const round0 = matches.filter((m) => m.round === 0)
   round0.forEach((m, i) => {
     m.teamAId = slots[i * 2] ?? null
     m.teamBId = slots[i * 2 + 1] ?? null
-
-    // Auto-bye
-    if (m.teamAId && !m.teamBId) {
-      m.winnerId = m.teamAId
-      m.status = 'done'
-      m.scoreA = 1
-    } else if (!m.teamAId && m.teamBId) {
-      m.winnerId = m.teamBId
-      m.status = 'done'
-      m.scoreB = 1
-    }
   })
 
-  // Propagate bye winners into later rounds
-  return propagateWinners(matches)
+  return matches.sort((a, b) => a.round - b.round || a.index - b.index)
 }
 
 /** Classic bracket slot order for power-of-two sizes. */
@@ -148,6 +160,11 @@ function seedingOrder(size: number): number[] {
   return order
 }
 
+/**
+ * Copy match winners into their next-round slots.
+ * Never auto-completes later rounds — a missing opponent means TBD, not a bye.
+ * Opening-round byes must be applied with applyOpeningByes before this runs.
+ */
 export function propagateWinners(matches: BracketMatch[]): BracketMatch[] {
   const map = new Map(matches.map((m) => [m.id, { ...m }]))
   const sorted = [...map.values()].sort(
@@ -160,19 +177,7 @@ export function propagateWinners(matches: BracketMatch[]): BracketMatch[] {
     if (!next) continue
     if (m.nextSlot === 'A') next.teamAId = m.winnerId
     if (m.nextSlot === 'B') next.teamBId = m.winnerId
-
-    // Chain byes further
-    if (next.teamAId && !next.teamBId && next.status !== 'done') {
-      next.winnerId = next.teamAId
-      next.status = 'done'
-      next.scoreA = 1
-      next.scoreB = 0
-    } else if (!next.teamAId && next.teamBId && next.status !== 'done') {
-      next.winnerId = next.teamBId
-      next.status = 'done'
-      next.scoreB = 1
-      next.scoreA = 0
-    }
+    // Later rounds stay pending until an operator records a result.
     map.set(next.id, next)
   }
 
@@ -273,27 +278,13 @@ function withSlotTeam(
     : { ...match, teamBId: teamId }
 }
 
+/**
+ * Reset opening-round results after a reseat. Never auto-wins a BYE —
+ * every team stays in round 0 until a result is recorded.
+ */
 function applyOpeningByes(matches: BracketMatch[]): BracketMatch[] {
   return matches.map((m) => {
     if (m.round !== 0) return m
-    if (m.teamAId && !m.teamBId) {
-      return {
-        ...m,
-        winnerId: m.teamAId,
-        status: 'done' as MatchStatus,
-        scoreA: 1,
-        scoreB: 0,
-      }
-    }
-    if (!m.teamAId && m.teamBId) {
-      return {
-        ...m,
-        winnerId: m.teamBId,
-        status: 'done' as MatchStatus,
-        scoreA: 0,
-        scoreB: 1,
-      }
-    }
     return {
       ...m,
       winnerId: null,

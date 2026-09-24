@@ -11,6 +11,9 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+    },
     // Keep the watcher light on Windows — heavy folders + locked media freeze Vite.
     watch: {
       ignored: [
@@ -30,9 +33,20 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+    },
   },
   // Avoid thrashing when many OBS browser sources hit the same module graph.
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'zustand', 'tesseract.js'],
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'zustand',
+      'tesseract.js',
+      '@imgly/background-removal',
+      'onnxruntime-web',
+    ],
   },
 })

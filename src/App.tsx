@@ -13,12 +13,15 @@ import LineupOverlayPage from './pages/LineupOverlayPage'
 import LiveDeskPage from './pages/LiveDeskPage'
 import OverlayPage from './pages/OverlayPage'
 import ScenesControlPage from './pages/ScenesControlPage'
+import StandbyOverlayPage from './pages/StandbyOverlayPage'
 import StingerOverlayPage from './pages/StingerOverlayPage'
 import TournamentControlPage from './pages/TournamentControlPage'
 import MatchPreviewOverlayPage from './pages/MatchPreviewOverlayPage'
-import StandbyOverlayPage from './pages/StandbyOverlayPage'
+import MatchOverlayPage from './pages/MatchOverlayPage'
+import VictoryOverlayPage from './pages/VictoryOverlayPage'
 import CasterOverlayPage from './pages/CasterOverlayPage'
 import CasterControlPage from './pages/CasterControlPage'
+import GameplayPreviewPage from './pages/GameplayPreviewPage'
 
 function NotFound() {
   return (
@@ -45,6 +48,12 @@ function NotFound() {
           </a>{' '}
           — live desk
         </li>
+        <li>
+          <a href="/watch/gameplay" style={{ color: '#e8bf72' }}>
+            /watch/gameplay
+          </a>{' '}
+          — shoutcaster gameplay preview
+        </li>
       </ul>
     </div>
   )
@@ -57,11 +66,12 @@ export default function App() {
       <Route path="/overlay" element={<OverlayPage />} />
       <Route path="/overlay/game" element={<GameplayOverlayPage />} />
       <Route path="/overlay/stinger" element={<StingerOverlayPage />} />
+      <Route path="/overlay/standby" element={<StandbyOverlayPage />} />
       <Route path="/overlay/bracket" element={<BracketOverlayPage />} />
       <Route path="/overlay/lineup" element={<LineupOverlayPage />} />
       <Route path="/overlay/match-preview" element={<MatchPreviewOverlayPage />} />
-      <Route path="/overlay/standby" element={<StandbyOverlayPage />} />
-      <Route path="/overlay/hold" element={<StandbyOverlayPage />} />
+      <Route path="/overlay/match" element={<MatchOverlayPage />} />
+      <Route path="/overlay/victory" element={<VictoryOverlayPage />} />
       <Route path="/overlay/caster" element={<CasterOverlayPage />} />
       <Route path="/overlay/cams" element={<CamsGridOverlayPage />} />
       <Route path="/overlay/cam/:side" element={<CamOverlayPage />} />
@@ -77,6 +87,11 @@ export default function App() {
       <Route path="/control/bracket" element={<BracketControlPage />} />
       <Route path="/control/lineup" element={<LineupControlPage />} />
       <Route path="/control/casters" element={<CasterControlPage />} />
+      <Route
+        path="/control/gameplay-preview"
+        element={<Navigate to="/control/casters?tab=preview" replace />}
+      />
+      <Route path="/watch/gameplay" element={<GameplayPreviewPage />} />
       <Route path="/control/cams" element={<CamsControlPage />} />
       <Route
         path="/control/shoutcasters"

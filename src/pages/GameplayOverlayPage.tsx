@@ -1,19 +1,50 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import EventBanner from '../components/gameplay/EventBanner'
-import BottomFeedBar from '../components/gameplay/BottomFeedBar'
+import HeroImage from '../components/HeroImage'
 import { Icon } from '../components/cme/Icon'
-import { InstitutionLogos } from '../components/cme/InstitutionLogos'
+import { INSTITUTION_LOGOS } from '../components/cme/InstitutionLogos'
+import { getHero } from '../data/heroes'
+import {
+  createCamViewer,
+  tuneLowLatencyVideo,
+} from '../lib/camWebRtc'
+import { GAMEPLAY_SLOT } from '../lib/gameplayCapture'
 import {
   formatClock,
   initGameplaySync,
   useGameplayStore,
+  type FeaturedCam,
   type GameplayState,
   type TeamSide,
 } from '../store/gameplayStore'
-import { initCamsSync } from '../store/camsStore'
 import { ensureObsSync } from '../lib/obsSync'
+import { initCamsSync, useCamsStore } from '../store/camsStore'
+import '../styles/gameplay-hud.css'
+import '../styles/gameplay-preview.css'
 
-export default function GameplayOverlayPage() {
+type Team = GameplayState['blue']
+type CamStatus = 'connecting' | 'live' | 'idle' | 'error'
+
+function teamName(team: Team, side: TeamSide) {
+  return team.name?.trim() || team.tag?.trim() || (side === 'blue' ? 'BLUE TEAM' : 'RED TEAM')
+}
+
+function teamTag(team: Team, side: TeamSide) {
+  return team.tag?.trim() || side.toUpperCase()
+}
+
+export default function GameplayOverlayPage({
+  withGameplayFeed = false,
+}: {
+  /** Shoutcaster viewer: BlueStacks feed behind the HUD. */
+  withGameplayFeed?: boolean
+}) {
+  const [params] = useSearchParams()
+  const showFeed =
+    withGameplayFeed ||
+    params.get('feed') === '1' ||
+    params.get('preview') === '1'
   const hideEvent = useGameplayStore((s) => s.hideEvent)
   const showScoreboard = useGameplayStore((s) => s.showScoreboard)
   const showCameras = useGameplayStore((s) => s.showCameras)
@@ -21,10 +52,14 @@ export default function GameplayOverlayPage() {
   const mapUrl = useGameplayStore((s) => s.mapUrl)
   const mapLabel = useGameplayStore((s) => s.mapLabel)
   const matchInfo = useGameplayStore((s) => s.matchInfo)
+  const bestOf = useGameplayStore((s) => s.bestOf)
+  const currentGame = useGameplayStore((s) => s.currentGame)
   const gameTimeSeconds = useGameplayStore((s) => s.gameTimeSeconds)
   const timerRunning = useGameplayStore((s) => s.timerRunning)
   const blue = useGameplayStore((s) => s.blue)
   const red = useGameplayStore((s) => s.red)
+  const featuredBlue = useGameplayStore((s) => s.featuredBlue)
+  const featuredRed = useGameplayStore((s) => s.featuredRed)
   const event = useGameplayStore((s) => s.event)
   const shellRef = useRef<HTMLDivElement>(null)
   const onHide = useCallback(() => hideEvent(), [hideEvent])
@@ -32,7 +67,7 @@ export default function GameplayOverlayPage() {
   useEffect(() => {
     ensureObsSync()
     initGameplaySync()
-    initCamsSync()
+    if (showFeed) initCamsSync()
     const html = document.documentElement
     const body = document.body
     const previous = {
@@ -43,8 +78,8 @@ export default function GameplayOverlayPage() {
       htmlHeight: html.style.height,
       bodyHeight: body.style.height,
     }
-    html.style.background = 'transparent'
-    body.style.background = 'transparent'
+    html.style.background = showFeed ? '#05070c' : 'transparent'
+    body.style.background = showFeed ? '#05070c' : 'transparent'
     html.style.overflow = 'hidden'
     body.style.overflow = 'hidden'
     html.style.height = '100%'
@@ -68,8 +103,9 @@ export default function GameplayOverlayPage() {
         appRoot.style.overflow = rootOverflow
       }
     }
-  }, [])
+  }, [showFeed])
 
+  // Local clock only — do not persist/broadcast from the overlay (control owns that)
   useEffect(() => {
     if (!timerRunning) return
     const id = window.setInterval(() => {
@@ -106,47 +142,66 @@ export default function GameplayOverlayPage() {
     }
   }, [])
 
+  const winsNeeded = Math.ceil(bestOf / 2)
+
   return (
     <div
-      className={`overlay-root cme-go output-mode${showCameras ? '' : ' hide-cameras'}`}
+      className={`overlay-root cme-go output-mode${showFeed ? ' viewer-mode' : ''}`}
     >
       <div className="workspace">
         <div className="stage-shell" ref={shellRef}>
           <div className="stage">
-            {showScoreboard && (
-              <section className="scoreboard" aria-label="Match scoreboard">
-                <TeamBanner side="blue" team={blue} />
-                <div className="team-kills">
-                  <b>{blue.kills}</b>
-                  <small>KILLS</small>
-                </div>
-                <div className="match-core">
-                  <InstitutionLogos size="md" className="scoreboard-institutions" />
-                  <div className="event-brand">CME TOURNAMENT</div>
-                  <div className="match-clock">{formatClock(gameTimeSeconds)}</div>
-                  <div className={`clock-state${timerRunning ? ' running' : ''}`}>
-                    {timerRunning ? 'MATCH TIME' : 'CLOCK PAUSED'}
+            {showFeed ? <GameplayFeedBackground /> : null}
+            <div className="gx-root">
+              {showScoreboard && (
+                <section className="gx-board" aria-label="Match scoreboard">
+                  <TeamPlate side="blue" team={blue} winsNeeded={winsNeeded} />
+                  <Kills side="blue" value={blue.kills} />
+                  <div className="gx-core">
+                    <div className="gx-seals">
+                      {INSTITUTION_LOGOS.map((logo) => (
+                        <span key={logo.id} className={`gx-seal ${logo.slot}`}>
+                          <img src={logo.src} alt={logo.alt} draggable={false} />
+                        </span>
+                      ))}
+                    </div>
+                    <div className="gx-clock">{formatClock(gameTimeSeconds)}</div>
+                    <div className={`gx-clock-state${timerRunning ? ' live' : ''}`}>
+                      <i />
+                      {timerRunning ? 'LIVE · MATCH TIME' : 'CLOCK PAUSED'}
+                    </div>
                   </div>
-                </div>
-                <div className="team-kills red">
-                  <b>{red.kills}</b>
-                  <small>KILLS</small>
-                </div>
-                <TeamBanner side="red" team={red} />
-              </section>
-            )}
-            <div className="match-ribbon">
-              <span className="match-title">{matchInfo}</span>
-            </div>
-            {showMap && (
-              <div className="map-frame">
-                {mapUrl ? <img src={mapUrl} alt="" /> : mapLabel || 'MAP'}
+                  <Kills side="red" value={red.kills} />
+                  <TeamPlate side="red" team={red} winsNeeded={winsNeeded} />
+                </section>
+              )}
+
+              <div className={`gx-ribbon${showScoreboard ? '' : ' solo'}`}>
+                <span className="gx-anchor">
+                  <AnchorIcon />
+                </span>
+                <span className="gx-ribbon-info">
+                  {matchInfo?.trim() || `CME ML TOURNAMENT · GAME ${currentGame} · BO${bestOf}`}
+                </span>
               </div>
-            )}
 
-            <BottomFeedBar />
+              {showMap && (
+                <div className="gx-map">
+                  {mapUrl ? <img src={mapUrl} alt="" /> : <span>{mapLabel || 'MAP'}</span>}
+                </div>
+              )}
 
-            <EventBanner event={event} onHide={onHide} />
+              {showCameras && (
+                <>
+                  <FeedCard side="blue" team={blue} featured={featuredBlue} />
+                  <FeedCard side="red" team={red} featured={featuredRed} />
+                </>
+              )}
+
+              <LogoCarousel blue={blue} red={red} />
+
+              <EventBanner event={event} onHide={onHide} />
+            </div>
           </div>
         </div>
       </div>
@@ -154,43 +209,275 @@ export default function GameplayOverlayPage() {
   )
 }
 
-function TeamBanner({
-  side,
-  team,
-}: {
-  side: TeamSide
-  team: GameplayState['blue']
-}) {
-  const displayName =
-    team.name.trim() || team.tag.trim() || (side === 'blue' ? 'BLUE' : 'RED')
-  const displayTag = team.tag.trim() || side.toUpperCase()
+/** Full-bleed BlueStacks / game window behind the HUD (shoutcaster viewer). */
+function GameplayFeedBackground() {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [status, setStatus] = useState<CamStatus>('idle')
+  const [everLive, setEverLive] = useState(false)
+  const gameplayLive = useCamsStore((s) => s.gameplayLive)
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    tuneLowLatencyVideo(video)
+    const viewer = createCamViewer({
+      slotId: GAMEPLAY_SLOT,
+      video,
+      lowLatency: true,
+      onStatus: (s) => {
+        setStatus(s)
+        if (s === 'live') setEverLive(true)
+        if (s === 'idle' || s === 'error') setEverLive(false)
+      },
+    })
+    return () => viewer.stop()
+  }, [])
+
+  const live = status === 'live' || everLive
 
   return (
-    <div className={`team-banner${side === 'red' ? ' red' : ''}`}>
-      <span className="crest institution-crest">
-        {team.logo ? (
-          <img src={team.logo} alt="" decoding="async" />
-        ) : (
-          displayTag.slice(0, 2).toUpperCase()
-        )}
-      </span>
-      <div className="team-info">
-        <div className="team-name" title={displayName}>
-          {displayName}
+    <>
+      <video
+        ref={videoRef}
+        className={`gx-gameplay-bg${live ? ' is-live' : ''}`}
+        playsInline
+        muted
+        autoPlay
+        disablePictureInPicture
+      />
+      {!live ? (
+        <div className="gx-gameplay-wait">
+          <span>GAMEPLAY PREVIEW</span>
+          <strong>
+            {status === 'error'
+              ? 'Feed dropped — retrying'
+              : gameplayLive || status === 'connecting'
+                ? 'Connecting to cast window…'
+                : 'Waiting for cast window'}
+          </strong>
+          <p>
+            Operator: Gameplay Preview → Select window → pick BlueStacks / App Player
+          </p>
         </div>
-        <div className="team-abbr">
-          {displayTag} · {side.toUpperCase()} SIDE
+      ) : null}
+    </>
+  )
+}
+
+function AnchorIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="5" r="2.2" />
+      <path d="M12 7.2V21M7 11h10M4 14a8 7 0 0 0 16 0M4 14l-1.6 1.6M4 14l1.8 1.2M20 14l1.6 1.6M20 14l-1.8 1.2" />
+    </svg>
+  )
+}
+
+function TeamPlate({ side, team, winsNeeded }: { side: TeamSide; team: Team; winsNeeded: number }) {
+  const name = teamName(team, side)
+  const tag = teamTag(team, side)
+  return (
+    <div className={`gx-plate side-${side}`}>
+      <span className="gx-crest">
+        {team.logo ? <img src={team.logo} alt="" decoding="async" /> : <b>{tag.slice(0, 3).toUpperCase()}</b>}
+      </span>
+      <div className="gx-plate-info">
+        <div className="gx-plate-name" title={name}>
+          {name}
+        </div>
+        <div className="gx-plate-meta">
+          <span className="gx-anchor">
+            <AnchorIcon />
+          </span>
+          <span className="gx-plate-tag">{tag}</span>
+          <span className="gx-plate-side">{side.toUpperCase()} SIDE</span>
         </div>
       </div>
-      <div className="team-economy">
-        <div className="tower-total">
-          <Icon name="tower" />
-          <strong>{team.towers}</strong> TOWERS
+      <div className="gx-plate-stats">
+        <div className="gx-series" aria-label={`${team.seriesScore} series wins`}>
+          {Array.from({ length: winsNeeded }, (_, i) => (
+            <i key={i} className={i < team.seriesScore ? 'won' : ''} />
+          ))}
         </div>
-        <div className="series-total">
-          <strong>{team.seriesScore}</strong> SERIES
+        <div className="gx-towers">
+          <Icon name="tower" />
+          <strong>{team.towers}</strong>
+          <small>TOWERS</small>
         </div>
       </div>
     </div>
+  )
+}
+
+const INSTITUTION_NAMES: Record<string, { name: string; sub: string }> = {
+  zscmst: { name: 'ZSCMST', sub: 'Zamboanga State College of Marine Sciences & Technology' },
+  cme: { name: 'CME', sub: 'College of Maritime Education' },
+  'young-sailors-club': { name: 'Young Sailors Club', sub: '' },
+}
+
+type CarouselItem =
+  | { kind: 'logo'; key: string; src: string; name: string; sub: string; side?: TeamSide }
+  | { kind: 'title'; key: string; text: string }
+
+function LogoCarousel({ blue, red }: { blue: Team; red: Team }) {
+  const items: CarouselItem[] = [
+    { kind: 'title', key: 'title', text: 'CME ML TOURNAMENT' },
+    ...INSTITUTION_LOGOS.map<CarouselItem>((logo) => ({
+      kind: 'logo',
+      key: logo.id,
+      src: logo.src,
+      ...(INSTITUTION_NAMES[logo.id] ?? { name: logo.alt, sub: '' }),
+    })),
+    { kind: 'title', key: 'mlbb', text: 'MOBILE LEGENDS: BANG BANG' },
+    ...(['blue', 'red'] as const)
+      .map((side) => ({ side, team: side === 'blue' ? blue : red }))
+      .filter(({ team }) => team.logo)
+      .map<CarouselItem>(({ side, team }) => ({
+        kind: 'logo',
+        key: `team-${side}`,
+        src: team.logo,
+        name: teamName(team, side),
+        sub: `${side.toUpperCase()} SIDE`,
+        side,
+      })),
+  ]
+
+  const renderRun = (run: number) =>
+    items.map((item) =>
+      item.kind === 'title' ? (
+        <span key={`${run}-${item.key}`} className="gx-carousel-title">
+          <span className="gx-anchor">
+            <AnchorIcon />
+          </span>
+          {item.text}
+        </span>
+      ) : (
+        <span
+          key={`${run}-${item.key}`}
+          className={`gx-carousel-logo${item.side ? ` side-${item.side}` : ''}`}
+        >
+          <img src={item.src} alt="" draggable={false} decoding="async" />
+          <span>
+            <b>{item.name}</b>
+            {item.sub && <small>{item.sub}</small>}
+          </span>
+        </span>
+      ),
+    )
+
+  return (
+    <div className="gx-carousel" aria-label="Tournament partners">
+      <div className="gx-carousel-view">
+        <div className="gx-carousel-track" style={{ '--n': items.length } as CSSProperties}>
+          <div className="gx-carousel-run">{renderRun(0)}</div>
+          <div className="gx-carousel-run" aria-hidden="true">
+            {renderRun(1)}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Kills({ side, value }: { side: TeamSide; value: number }) {
+  return (
+    <div className={`gx-kills side-${side}`}>
+      <b key={value}>{value}</b>
+      <small>KILLS</small>
+    </div>
+  )
+}
+
+function FeedCard({ side, team, featured }: { side: TeamSide; team: Team; featured: FeaturedCam }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [status, setStatus] = useState<CamStatus>('connecting')
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    const viewer = createCamViewer({ slotId: side, video, onStatus: setStatus })
+    return () => viewer.stop()
+  }, [side])
+
+  const live = status === 'live'
+  const player = team.players?.[featured?.playerIndex ?? 0]
+  const hero = getHero(player?.heroId)
+  const tag = teamTag(team, side)
+  const playerName = player?.ign?.trim() || player?.name?.trim() || `${tag} PLAYER`
+  const footer = featured?.camLabel?.trim() ?? ''
+  const bpm = featured?.bpm ?? 0
+  const waiting =
+    status === 'idle' ? 'CAMERA OFFLINE' : status === 'error' ? 'RECONNECTING' : 'WAITING FOR FEED'
+
+  return (
+    <article
+      className={`gx-feed side-${side}${live ? ' is-live' : ''}`}
+      aria-label={`${teamName(team, side)} camera`}
+    >
+      <header className="gx-feed-head">
+        <span className="gx-anchor">
+          <AnchorIcon />
+        </span>
+        <span className="gx-feed-team" title={teamName(team, side)}>
+          {teamName(team, side)}
+        </span>
+        <span className={`gx-feed-status${live ? ' live' : ''}`}>
+          <i />
+          {live ? 'LIVE' : 'STANDBY'}
+        </span>
+      </header>
+
+      <div className="gx-feed-screen">
+        <div className="gx-feed-bg" />
+        <div className="gx-feed-cme" aria-hidden="true">
+          <span>C</span>
+          <span>M</span>
+          <span>E</span>
+        </div>
+        {!live && (
+          <div className="gx-feed-wait">
+            {team.logo ? (
+              <img src={team.logo} alt="" decoding="async" />
+            ) : (
+              <b>{tag.slice(0, 3).toUpperCase()}</b>
+            )}
+            <span>
+              {waiting}
+              <em className="gx-dots">
+                <i />
+                <i />
+                <i />
+              </em>
+            </span>
+          </div>
+        )}
+        <video ref={videoRef} playsInline autoPlay muted className={live ? 'on' : ''} />
+        <span className="gx-feed-corner tl" />
+        <span className="gx-feed-corner tr" />
+        <span className="gx-feed-corner bl" />
+        <span className="gx-feed-corner br" />
+        <div className="gx-feed-scan" />
+      </div>
+
+      <footer className="gx-feed-foot">
+        {hero && (
+          <span className="gx-feed-hero">
+            <HeroImage hero={hero} variant="portrait" showNameFallback={false} />
+          </span>
+        )}
+        <div className="gx-feed-player">
+          <b title={playerName}>{playerName}</b>
+          <small title={footer || hero?.name}>
+            {footer || (hero ? hero.name : `${tag} · FEATURED PLAYER`)}
+          </small>
+        </div>
+        {bpm > 0 && (
+          <span className="gx-feed-bpm" style={{ '--beat': `${60 / bpm}s` } as CSSProperties}>
+            <Icon name="heart" />
+            {bpm}
+          </span>
+        )}
+      </footer>
+    </article>
   )
 }

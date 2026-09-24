@@ -1,0 +1,281 @@
+/* Shoutcaster viewer shell */
+.gpv-viewer {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background: #05070c;
+  color: #eaf0fa;
+  font-family: Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+.gpv-viewer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  background: #0d121b;
+  border-bottom: 1px solid #243044;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.gpv-viewer-bar strong {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.gpv-viewer-bar span {
+  color: #92a3bd;
+  font-size: 12px;
+}
+
+.gpv-viewer-bar button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #2a364a;
+  background: #141b27;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.gpv-viewer-bar button:hover {
+  border-color: #e8bf72;
+}
+
+.gpv-viewer-body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  width: 100%;
+  background: #05070c;
+}
+
+/* Force overlay stage to fill the viewer body (not leftover 100vh under the bar) */
+.gpv-viewer-body .overlay-root.cme-go.output-mode,
+.gpv-viewer-body .overlay-root.cme-go.output-mode .workspace,
+.gpv-viewer-body .overlay-root.cme-go.output-mode .stage-shell {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.cme-go.viewer-mode {
+  background: #05070c !important;
+}
+
+.cme-go.viewer-mode .stage {
+  background: #000 !important;
+}
+
+/* Full-stage BlueStacks feed behind HUD */
+.cme-go .gx-gameplay-bg {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  object-fit: contain;
+  object-position: center center;
+  background: #000;
+  z-index: 0;
+  opacity: 0;
+  transform: translateZ(0);
+  image-rendering: auto;
+}
+
+.cme-go .gx-gameplay-bg.is-live {
+  opacity: 1;
+}
+
+.cme-go .gx-gameplay-wait {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px;
+  text-align: center;
+  background: radial-gradient(circle at 50% 30%, #1a2740 0%, #05070c 60%);
+  color: #eaf0fa;
+  pointer-events: none;
+}
+
+.cme-go .gx-gameplay-wait span {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  color: #e8bf72;
+}
+
+.cme-go .gx-gameplay-wait strong {
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.cme-go .gx-gameplay-wait p {
+  margin: 0;
+  max-width: 480px;
+  color: #92a3bd;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cme-go.viewer-mode .gx-root {
+  z-index: 2;
+}
+
+/* Operator cast controls — large local preview */
+.cme-gc .gpv-desk {
+  display: grid;
+  gap: 16px;
+}
+
+.cme-gc .gpv-desk-stage {
+  width: 100%;
+  min-height: 78vh;
+  height: 78vh;
+  max-height: 900px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #05070c;
+}
+
+.cme-gc .gpv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cme-gc .gpv-link {
+  display: block;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #0e1623;
+  border: 1px solid var(--line);
+  color: #68adff;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.cme-gc .gpv-cast {
+  display: grid;
+  gap: 12px;
+}
+
+.cme-gc .gpv-cast-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cme-gc .gpv-cast-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.cme-gc .gpv-cast-preview {
+  position: relative;
+  width: 100%;
+  min-height: 72vh;
+  height: 72vh;
+  max-height: 820px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #05070c;
+  border: 1px solid var(--line);
+}
+
+.cme-gc .gpv-cast-preview video {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  object-fit: contain;
+  object-position: center center;
+  background: #000;
+  opacity: 0;
+}
+
+.cme-gc .gpv-cast-preview video.is-live {
+  opacity: 1;
+}
+
+.cme-gc .gpv-cast-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--muted);
+  text-align: center;
+  padding: 16px;
+}
+
+.cme-gc .gpv-cast-empty strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.cme-gc .gpv-cast-empty span {
+  font-size: 13px;
+}
+
+.cme-gc .gpv-cast-meta {
+  align-self: center;
+  font-size: 12px;
+  color: #7ddea8;
+  font-weight: 700;
+}
+
+.cme-gc .gpv-cast-secure {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 180, 90, 0.45);
+  background: rgba(80, 45, 10, 0.45);
+  border-radius: 10px;
+  color: #ffd9a8;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.cme-gc .gpv-cast-secure strong {
+  color: #ffe2b8;
+  font-size: 14px;
+}
+
+.cme-gc .gpv-cast-error {
+  margin: 0;
+  color: #ff9aaf;
+  font-size: 13px;
+}

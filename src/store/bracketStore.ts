@@ -13,6 +13,7 @@ import {
   type BracketState,
   type BracketTeam,
 } from '../lib/bracketEngine'
+import { loadJson, loadJsonSync, saveJsonFire } from '../lib/appStorage'
 import { fetchSync, pushSync, subscribeSync } from '../lib/obsSync'
 import { useDraftStore } from './draftStore'
 
@@ -34,6 +35,8 @@ type Actions = {
   /** After draft/series — mark winner and advance bracket */
   reportDraftWinner: (side: 'blue' | 'red') => void
   resetTournament: () => void
+  /** Clear all matches so the tournament manager can re-seed. */
+  unseed: () => void
   hydrate: (state: BracketState) => void
 }
 
@@ -41,25 +44,17 @@ export type BracketStore = BracketState & Actions
 
 const STORAGE_KEY = 'mlbb-bracket-state-v1'
 let applyingRemote = false
+let syncStarted = false
 
 function loadStored(): BracketState | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw) as BracketState
-  } catch {
-    return null
-  }
+  return loadJsonSync<BracketState>(STORAGE_KEY)
 }
 
 function push(state: BracketState) {
   if (applyingRemote) return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  } catch {
-    /* ignore */
-  }
-  pushSync('bracket', state)
+  const data = snapshot(state)
+  saveJsonFire(STORAGE_KEY, data)
+  pushSync('bracket', data)
 }
 
 function snapshot(s: BracketStore | BracketState): BracketState {
@@ -204,7 +199,7 @@ export const useBracketStore = create<BracketStore>((set, get) => ({
     const matches = get().matches
     const src = matches.find((m) => m.id === from.matchId)
     const dst = matches.find((m) => m.id === to.matchId)
-    // Only unfinished opening-round (QF) slots — never SF/Final or after a result
+    // Only unfinished opening-round slots — never later rounds or after a result
     if (!src || !dst || src.round !== 0 || dst.round !== 0) return false
     if (src.winnerId || dst.winnerId) return false
     const next = swapOpeningTeams(matches, from, to)
@@ -257,6 +252,11 @@ export const useBracketStore = create<BracketStore>((set, get) => ({
     push(snapshot(get()))
   },
 
+  unseed: () => {
+    set({ matches: [], activeMatchId: null })
+    push(snapshot(get()))
+  },
+
   hydrate: (state) => {
     applyingRemote = true
     set({ ...state })
@@ -264,29 +264,35 @@ export const useBracketStore = create<BracketStore>((set, get) => ({
   },
 }))
 
-let bracketSyncStarted = false
-
-function applyBracketRemote(payload: unknown) {
-  if (!payload || typeof payload !== 'object') return
-  useBracketStore.getState().hydrate(payload as BracketState)
-}
-
 export function initBracketSync() {
-  if (bracketSyncStarted) return
-  bracketSyncStarted = true
+  if (syncStarted) return
+  syncStarted = true
 
-  subscribeSync('bracket', applyBracketRemote)
+  let hubSeen = false
+  const isBracket = (p: unknown): p is BracketState =>
+    !!p && typeof p === 'object' && Array.isArray((p as BracketState).matches)
 
-  const isControl =
-    typeof window !== 'undefined' &&
-    window.location.pathname.includes('/control')
+  void loadJson<BracketState>(STORAGE_KEY).then((payload) => {
+    if (!hubSeen && isBracket(payload)) {
+      useBracketStore.getState().hydrate(payload)
+    }
+  })
 
+  subscribeSync('bracket', (payload) => {
+    if (!isBracket(payload)) return
+    hubSeen = true
+    useBracketStore.getState().hydrate(payload)
+  })
+
+  // The hub copy wins; a desk only republishes its cache when the hub is empty,
+  // so opening a stale tab can no longer swap the live match.
   void fetchSync('bracket').then((payload) => {
-    if (payload && typeof payload === 'object') {
-      applyBracketRemote(payload)
+    if (isBracket(payload)) {
+      hubSeen = true
+      useBracketStore.getState().hydrate(payload)
       return
     }
-    if (isControl) {
+    if (!hubSeen && window.location.pathname.startsWith('/control')) {
       pushSync('bracket', snapshot(useBracketStore.getState()))
     }
   })

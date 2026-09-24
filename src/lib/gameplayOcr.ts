@@ -48,6 +48,14 @@ export type OcrReading = {
   kda: OcrKda | null
   ok: boolean
   confidence: number
+  /** Preprocess/PSM attempts that agreed on the chosen value. */
+  votes?: number
+  /** Attempts that produced any valid parse. */
+  okAttempts?: number
+  /** performance.now() when the frame was sampled. */
+  at?: number
+  /** Crop pixels unchanged since the last OCR — previous result reused. */
+  cached?: boolean
 }
 
 export function isKdaField(field: OcrField): field is OcrKdaField {
@@ -99,6 +107,24 @@ let workerReady: Promise<Worker> | null = null
 let workerPsm = '7'
 let workerWhitelist = ''
 
+function workerParams(psm: string, whitelist: string): Record<string, string> {
+  return {
+    tessedit_char_whitelist: whitelist,
+    tessedit_pageseg_mode: psm,
+    user_defined_dpi: '300',
+    // Crops are always rendered dark-on-white; skip Tesseract's inverted retry
+    tessedit_do_invert: '0',
+    // Digit HUD — ignore English word guesses
+    load_system_dawg: '0',
+    load_freq_dawg: '0',
+    load_punc_dawg: '0',
+    load_number_dawg: '0',
+    load_unambig_dawg: '0',
+    load_bigram_dawg: '0',
+    load_fixed_length_dawgs: '0',
+  }
+}
+
 export async function getOcrWorker(): Promise<Worker> {
   if (worker) return worker
   if (!workerReady) {
@@ -111,22 +137,9 @@ export async function getOcrWorker(): Promise<Worker> {
         logger: () => undefined,
         errorHandler: () => undefined,
       })
-      await w.setParameters({
-        tessedit_char_whitelist: '0123456789:.',
-        tessedit_pageseg_mode: '7',
-        classify_bln_numeric_mode: '1',
-        user_defined_dpi: '300',
-        // Digit HUD — ignore English word guesses
-        load_system_dawg: '0',
-        load_freq_dawg: '0',
-        load_punc_dawg: '0',
-        load_number_dawg: '0',
-        load_unambig_dawg: '0',
-        load_bigram_dawg: '0',
-        load_fixed_length_dawgs: '0',
-      } as Record<string, string>)
+      await w.setParameters(workerParams('7', '0123456789:'))
       workerPsm = '7'
-      workerWhitelist = '0123456789:.'
+      workerWhitelist = '0123456789:'
       worker = w
       return w
     })().catch((err) => {
@@ -141,19 +154,7 @@ export async function getOcrWorker(): Promise<Worker> {
 async function configureWorker(psm: string, whitelist: string) {
   const w = await getOcrWorker()
   if (workerPsm === psm && workerWhitelist === whitelist) return w
-  const params = {
-    tessedit_char_whitelist: whitelist,
-    tessedit_pageseg_mode: psm,
-    classify_bln_numeric_mode: '1',
-    user_defined_dpi: '300',
-    load_system_dawg: '0',
-    load_freq_dawg: '0',
-    load_punc_dawg: '0',
-    load_number_dawg: '0',
-    load_unambig_dawg: '0',
-    load_bigram_dawg: '0',
-    load_fixed_length_dawgs: '0',
-  } as Record<string, string>
+  const params = workerParams(psm, whitelist)
   try {
     await w.setParameters(params)
   } catch {
@@ -176,6 +177,7 @@ export async function destroyOcrWorker() {
   workerReady = null
   workerPsm = '7'
   workerWhitelist = ''
+  resetOcrCache()
   try {
     if (current) await current.terminate()
     else if (pending) {
@@ -187,9 +189,9 @@ export async function destroyOcrWorker() {
   }
 }
 
-function sourceSize(
-  source: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement,
-): { sw: number; sh: number } {
+type OcrSource = HTMLCanvasElement | HTMLVideoElement | HTMLImageElement
+
+function sourceSize(source: OcrSource): { sw: number; sh: number } {
   const sw =
     'videoWidth' in source
       ? source.videoWidth || source.clientWidth
@@ -205,21 +207,299 @@ function sourceSize(
   return { sw, sh }
 }
 
-type PrepMode = 'bright' | 'invert' | 'soft'
+export type PrepMode = 'otsu' | 'strict' | 'gray'
 
-function padFactors(field: OcrField): { padX: number; padY: number } {
-  // Keep crops tight to the drawn box — less HUD bleed, faster OCR
-  if (field === 'blueKills') return { padX: -0.28, padY: -0.22 }
-  if (field === 'redKills') return { padX: -0.26, padY: -0.2 }
-  if (field === 'clock') return { padX: 0.02, padY: 0.06 }
-  if (isKdaField(field)) return { padX: 0.02, padY: 0.05 }
-  return { padX: 0.03, padY: 0.06 }
+function isKillField(field: OcrField) {
+  return field === 'blueKills' || field === 'redKills'
 }
 
-/** Simple 1px dilate to keep thin "1" strokes from vanishing. */
-function thickenBright(bin: Uint8ClampedArray, w: number, h: number) {
+function focusKillRegion(region: OcrRegion): OcrRegion {
+  // Loose boxes pull in gold. Kill badge is toward the clock:
+  // blue gold | BLUE KILLS | clock | RED KILLS | red gold
+  if (region.id === 'blueKills' && region.w > 0.018) {
+    return { ...region, x: region.x + region.w * 0.42, w: region.w * 0.58 }
+  }
+  if (region.id === 'redKills' && region.w > 0.018) {
+    return { ...region, w: region.w * 0.58 }
+  }
+  return region
+}
+
+function padFactors(field: OcrField): {
+  padL: number
+  padR: number
+  padY: number
+} {
+  // Blue gold sits to the left; red gold sits to the right
+  if (field === 'blueKills') return { padL: -0.2, padR: -0.02, padY: -0.06 }
+  if (field === 'redKills') return { padL: -0.02, padR: -0.2, padY: -0.06 }
+  if (field === 'clock') return { padL: 0.08, padR: 0.08, padY: 0.18 }
+  if (isKdaField(field)) return { padL: 0.06, padR: 0.06, padY: 0.14 }
+  return { padL: 0.12, padR: 0.12, padY: 0.2 }
+}
+
+/** Copy the padded region at native capture resolution (no full-frame copy). */
+function cropNative(source: OcrSource, region: OcrRegion): HTMLCanvasElement | null {
+  const { sw, sh } = sourceSize(source)
+  if (!sw || !sh) return null
+  const focused = isKillField(region.id) ? focusKillRegion(region) : region
+  const { padL, padR, padY: pyF } = padFactors(focused.id)
+
+  const padLeft = focused.w * padL
+  const padRight = focused.w * padR
+  const padY = focused.h * pyF
+  let x0 = Math.max(0, focused.x - padLeft)
+  let y0 = Math.max(0, focused.y - padY)
+  let x1 = Math.min(1, focused.x + focused.w + padRight)
+  let y1 = Math.min(1, focused.y + focused.h + padY)
+  // Negative pad (kill inset) can collapse a tiny box — fall back to focused box
+  if (x1 - x0 < focused.w * 0.35) {
+    x0 = focused.x
+    x1 = focused.x + focused.w
+  }
+  if (y1 - y0 < focused.h * 0.35) {
+    y0 = focused.y
+    y1 = focused.y + focused.h
+  }
+
+  const sx = Math.floor(x0 * sw)
+  const sy = Math.floor(y0 * sh)
+  const rw = Math.max(2, Math.min(sw - sx, Math.ceil((x1 - x0) * sw)))
+  const rh = Math.max(2, Math.min(sh - sy, Math.ceil((y1 - y0) * sh)))
+
+  const c = document.createElement('canvas')
+  c.width = rw
+  c.height = rh
+  const ctx = c.getContext('2d', { willReadFrequently: true, alpha: false })
+  if (!ctx) return null
+  ctx.drawImage(source, sx, sy, rw, rh, 0, 0, rw, rh)
+  return c
+}
+
+const SIG_W = 24
+const SIG_H = 12
+
+/** Coarse grayscale grid used to skip OCR when the crop has not changed. */
+function signatureOf(crop: HTMLCanvasElement): Float32Array {
+  const ctx = crop.getContext('2d', { willReadFrequently: true })!
+  const { data } = ctx.getImageData(0, 0, crop.width, crop.height)
+  const sig = new Float32Array(SIG_W * SIG_H)
+  const counts = new Uint16Array(SIG_W * SIG_H)
+  for (let y = 0; y < crop.height; y++) {
+    const cy = Math.min(SIG_H - 1, Math.floor((y * SIG_H) / crop.height))
+    for (let x = 0; x < crop.width; x++) {
+      const cx = Math.min(SIG_W - 1, Math.floor((x * SIG_W) / crop.width))
+      const i = (y * crop.width + x) * 4
+      const cell = cy * SIG_W + cx
+      sig[cell] += (data[i]! + data[i + 1]! + data[i + 2]!) / 3
+      counts[cell]!++
+    }
+  }
+  for (let i = 0; i < sig.length; i++) sig[i] = counts[i] ? sig[i]! / counts[i]! : 0
+  return sig
+}
+
+function signatureChanged(a: Float32Array, b: Float32Array, sensitive = false): boolean {
+  if (a.length !== b.length) return true
+  let sum = 0
+  let max = 0
+  for (let i = 0; i < a.length; i++) {
+    const d = Math.abs(a[i]! - b[i]!)
+    sum += d
+    if (d > max) max = d
+  }
+  const maxCut = sensitive ? 16 : 30
+  const avgCut = sensitive ? 1.6 : 3
+  return max > maxCut || sum / a.length > avgCut
+}
+
+type CropAnalysis = {
+  /** Foreground-bright gray (0–255) for the upscaled content area. */
+  gray: Uint8ClampedArray
+  cw: number
+  ch: number
+  margin: number
+  otsu: number
+  fgMean: number
+  lo: number
+  hi: number
+}
+
+function otsuOf(hist: Uint32Array, total: number) {
+  let sumAll = 0
+  let sqAll = 0
+  for (let i = 0; i < 256; i++) {
+    sumAll += i * hist[i]!
+    sqAll += i * i * hist[i]!
+  }
+  const mean = sumAll / total
+  const variance = sqAll / total - mean * mean
+  let best = -1
+  let bestT = 127
+  let sumB = 0
+  let wB = 0
+  for (let t = 0; t < 255; t++) {
+    wB += hist[t]!
+    if (!wB) continue
+    const wF = total - wB
+    if (!wF) break
+    sumB += t * hist[t]!
+    const mB = sumB / wB
+    const mF = (sumAll - sumB) / wF
+    const between = wB * wF * (mB - mF) * (mB - mF)
+    if (between > best) {
+      best = between
+      bestT = t
+    }
+  }
+  // Separability 0–1: how cleanly the crop splits into text vs background
+  const eta = variance > 0 ? best / (total * total) / variance : 0
+  return { t: bestT, eta }
+}
+
+const TARGET_CONTENT_H = 64
+const KILL_CONTENT_H = 80
+
+/**
+ * Upscale the native crop, then pick the gray projection (max channel, min
+ * channel, or luma) that best separates digits from the HUD panel. Handles
+ * white, gold, and team-tinted digits without per-field tuning.
+ */
+function analyzeCrop(native: HTMLCanvasElement, field?: OcrField): CropAnalysis {
+  const targetH = field && isKillField(field) ? KILL_CONTENT_H : TARGET_CONTENT_H
+  const scale = Math.max(1, Math.min(6, Math.ceil(targetH / native.height)))
+  const cw = native.width * scale
+  const ch = native.height * scale
+  const margin = Math.round(ch * 0.3) + 8
+
+  const up = document.createElement('canvas')
+  up.width = cw
+  up.height = ch
+  const uctx = up.getContext('2d', { willReadFrequently: true, alpha: false })!
+  uctx.imageSmoothingEnabled = true
+  uctx.imageSmoothingQuality = 'high'
+  uctx.drawImage(native, 0, 0, cw, ch)
+  const { data } = uctx.getImageData(0, 0, cw, ch)
+
+  const n = cw * ch
+  const maxCh = (r: number, g: number, b: number) => Math.max(r, g, b * 0.85)
+  const minCh = (r: number, g: number, b: number) => Math.min(r, g, b)
+  const luma = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b
+  // Kills: min-channel only (gold stays dark). Clock/other: try all three.
+  const projections =
+    field && isKillField(field) ? [minCh] : [maxCh, minCh, luma]
+
+  let bestGray: Uint8ClampedArray | null = null
+  let bestHist: Uint32Array | null = null
+  let bestEta = -1
+  let bestT = 127
+  for (const project of projections) {
+    const gray = new Uint8ClampedArray(n)
+    const hist = new Uint32Array(256)
+    for (let i = 0, p = 0; p < n; i += 4, p++) {
+      const g = Math.round(project(data[i]!, data[i + 1]!, data[i + 2]!))
+      gray[p] = g
+      hist[g]!++
+    }
+    const { t, eta } = otsuOf(hist, n)
+    if (eta > bestEta) {
+      bestEta = eta
+      bestGray = gray
+      bestHist = hist
+      bestT = t
+    }
+  }
+
+  const gray = bestGray!
+  let hist = bestHist!
+  let otsu = bestT
+
+  // Text is the minority class — flip if the bright side dominates
+  let above = 0
+  for (let t = otsu + 1; t < 256; t++) above += hist[t]!
+  if (above > n * 0.5) {
+    const flipped = new Uint32Array(256)
+    for (let p = 0; p < n; p++) gray[p] = 255 - gray[p]!
+    for (let t = 0; t < 256; t++) flipped[255 - t] = hist[t]!
+    hist = flipped
+    otsu = 254 - otsu
+  }
+
+  let fgSum = 0
+  let fgCount = 0
+  for (let t = otsu + 1; t < 256; t++) {
+    fgSum += t * hist[t]!
+    fgCount += hist[t]!
+  }
+  const fgMean = fgCount ? fgSum / fgCount : Math.min(255, otsu + 40)
+
+  let lo = 0
+  let hi = 255
+  {
+    let acc = 0
+    const loCut = n * 0.02
+    const hiCut = n * 0.98
+    let loSet = false
+    for (let t = 0; t < 256; t++) {
+      acc += hist[t]!
+      if (!loSet && acc >= loCut) {
+        lo = t
+        loSet = true
+      }
+      if (acc >= hiCut) {
+        hi = t
+        break
+      }
+    }
+  }
+
+  return { gray, cw, ch, margin, otsu, fgMean, lo, hi: Math.max(hi, lo + 16) }
+}
+
+/** Drop specks and panel edge lines that Tesseract would read as 1s or dots. */
+function despeckle(mask: Uint8Array, w: number, h: number) {
+  const seen = new Uint8Array(w * h)
+  const stack = new Int32Array(w * h)
+  const pixels: number[] = []
+  const minArea = Math.max(6, Math.round(h * h * 0.004))
+  for (let start = 0; start < mask.length; start++) {
+    if (!mask[start] || seen[start]) continue
+    let top = 0
+    stack[top++] = start
+    seen[start] = 1
+    pixels.length = 0
+    let minX = w
+    let maxX = 0
+    let minY = h
+    let maxY = 0
+    while (top) {
+      const p = stack[--top]!
+      pixels.push(p)
+      const x = p % w
+      const y = (p - x) / w
+      if (x < minX) minX = x
+      if (x > maxX) maxX = x
+      if (y < minY) minY = y
+      if (y > maxY) maxY = y
+      if (x > 0 && mask[p - 1] && !seen[p - 1]) { seen[p - 1] = 1; stack[top++] = p - 1 }
+      if (x < w - 1 && mask[p + 1] && !seen[p + 1]) { seen[p + 1] = 1; stack[top++] = p + 1 }
+      if (y > 0 && mask[p - w] && !seen[p - w]) { seen[p - w] = 1; stack[top++] = p - w }
+      if (y < h - 1 && mask[p + w] && !seen[p + w]) { seen[p + w] = 1; stack[top++] = p + w }
+    }
+    const bw = maxX - minX + 1
+    const bh = maxY - minY + 1
+    const tiny = pixels.length < minArea
+    const hLine = bh <= h * 0.12 && bw >= w * 0.45
+    if (tiny || hLine) {
+      for (const p of pixels) mask[p] = 0
+    }
+  }
+}
+
+/** Dilate black glyphs so a thin HUD "1" still has enough stroke for LSTM. */
+function thickenDark(d: Uint8ClampedArray, w: number, h: number) {
   const src = new Uint8Array(w * h)
-  for (let p = 0, i = 0; p < src.length; p++, i += 4) src[p] = bin[i]! > 127 ? 1 : 0
+  for (let p = 0, i = 0; p < src.length; p++, i += 4) src[p] = d[i]! < 127 ? 1 : 0
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const p = y * w + x
@@ -238,137 +518,65 @@ function thickenBright(bin: Uint8ClampedArray, w: number, h: number) {
       }
       if (hit) {
         const i = p * 4
-        bin[i] = bin[i + 1] = bin[i + 2] = 255
+        d[i] = d[i + 1] = d[i + 2] = 0
       }
     }
   }
 }
 
-/** Upscale + pad + contrast for tiny MLBB HUD digits (BlueStacks-friendly). */
-export function preprocessCrop(
-  source: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement,
-  region: OcrRegion,
-  mode: PrepMode = 'bright',
-  scale = 4,
-): HTMLCanvasElement {
-  const { sw, sh } = sourceSize(source)
-  const { padX: pxF, padY: pyF } = padFactors(region.id)
-
-  const padX = region.w * pxF
-  const padY = region.h * pyF
-  let x0 = Math.max(0, region.x - padX)
-  let y0 = Math.max(0, region.y - padY)
-  let x1 = Math.min(1, region.x + region.w + padX)
-  let y1 = Math.min(1, region.y + region.h + padY)
-  // Negative pad (kill inset) can collapse a tiny box — fall back to raw region
-  if (x1 - x0 < region.w * 0.35) {
-    x0 = region.x
-    x1 = region.x + region.w
-  }
-  if (y1 - y0 < region.h * 0.35) {
-    y0 = region.y
-    y1 = region.y + region.h
-  }
-
-  const sx = Math.floor(x0 * sw)
-  const sy = Math.floor(y0 * sh)
-  const rw = Math.max(2, Math.floor((x1 - x0) * sw))
-  const rh = Math.max(2, Math.floor((y1 - y0) * sh))
-
-  // Target a readable glyph height (~28–40px) for team kills / clock
-  const targetH = isKdaField(region.id) ? 36 : 40
-  const autoScale = Math.max(scale, Math.ceil(targetH / Math.max(1, rh)))
-  const useScale = Math.min(8, autoScale)
-
+/** Render a Tesseract-friendly crop: black digits on white with a quiet margin. */
+function renderCrop(a: CropAnalysis, mode: PrepMode, thicken = false): HTMLCanvasElement {
+  const { cw, ch, margin, gray } = a
   const out = document.createElement('canvas')
-  out.width = Math.max(48, rw * useScale)
-  out.height = Math.max(24, rh * useScale)
-  const ctx = out.getContext('2d', { willReadFrequently: true })!
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-  ctx.fillStyle = mode === 'invert' ? '#fff' : '#000'
+  out.width = cw + margin * 2
+  out.height = ch + margin * 2
+  const ctx = out.getContext('2d', { willReadFrequently: true, alpha: false })!
+  ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, out.width, out.height)
-  ctx.drawImage(source, sx, sy, rw, rh, 0, 0, out.width, out.height)
 
-  const img = ctx.getImageData(0, 0, out.width, out.height)
+  const img = ctx.createImageData(cw, ch)
   const d = img.data
-  const gray = new Float32Array(out.width * out.height)
-  let sum = 0
-  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
-    // White and gold HUD digits both stay bright. Blue weight was washing gold out.
-    const g = Math.max(d[i]!, d[i + 1]!, d[i + 2]! * 0.85)
-    gray[p] = g
-    sum += g
-  }
-  const mean = sum / gray.length
+  const n = cw * ch
 
-  // Percentile stretch for thin white HUD text on dark panels
-  const sorted = Float32Array.from(gray).sort()
-  const p5 = sorted[Math.floor(sorted.length * 0.05)] ?? 0
-  const p95 = sorted[Math.floor(sorted.length * 0.95)] ?? 255
-  const span = Math.max(14, p95 - p5)
-
-  // Otsu-ish threshold from mid histogram for bright mode
-  let otsu = 120
-  {
-    const hist = new Array(256).fill(0) as number[]
-    for (let p = 0; p < gray.length; p++) {
-      const g = Math.max(0, Math.min(255, Math.round(((gray[p]! - p5) / span) * 255)))
-      hist[g]!++
+  if (mode === 'gray') {
+    const span = a.hi - a.lo
+    for (let p = 0, i = 0; p < n; p++, i += 4) {
+      const g = Math.max(0, Math.min(255, ((gray[p]! - a.lo) / span) * 255))
+      const v = 255 - g
+      d[i] = d[i + 1] = d[i + 2] = v
+      d[i + 3] = 255
     }
-    let best = 0
-    let bestT = 120
-    const total = gray.length
-    let sumB = 0
-    let wB = 0
-    let sumAll = 0
-    for (let i = 0; i < 256; i++) sumAll += i * hist[i]!
-    for (let t = 1; t < 255; t++) {
-      wB += hist[t]!
-      if (!wB) continue
-      const wF = total - wB
-      if (!wF) break
-      sumB += t * hist[t]!
-      const mB = sumB / wB
-      const mF = (sumAll - sumB) / wF
-      const between = wB * wF * (mB - mF) * (mB - mF)
-      if (between > best) {
-        best = between
-        bestT = t
-      }
+  } else {
+    const t = mode === 'strict' ? a.otsu + (a.fgMean - a.otsu) * 0.35 : a.otsu
+    const mask = new Uint8Array(n)
+    for (let p = 0; p < n; p++) mask[p] = gray[p]! > t ? 1 : 0
+    despeckle(mask, cw, ch)
+    for (let p = 0, i = 0; p < n; p++, i += 4) {
+      const v = mask[p] ? 0 : 255
+      d[i] = d[i + 1] = d[i + 2] = v
+      d[i + 3] = 255
     }
-    otsu = bestT
+    if (thicken) thickenDark(d, cw, ch)
   }
 
-  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
-    let g = ((gray[p]! - p5) / span) * 255
-    g = Math.max(0, Math.min(255, g))
-
-    if (mode === 'invert') {
-      g = 255 - g
-    }
-
-    let v: number
-    if (mode === 'soft') {
-      v = g < mean * 0.55 ? 0 : g > mean * 1.15 ? 255 : g
-    } else if (mode === 'invert') {
-      v = g < 145 ? 0 : 255
-    } else {
-      // Bright digits on black — Otsu + soft floor so thin "1" survives
-      const hi = Math.max(95, otsu - 8)
-      v = g >= hi ? 255 : g < hi - 35 ? 0 : g >= hi - 18 ? 255 : 0
-    }
-
-    d[i] = d[i + 1] = d[i + 2] = v
-    d[i + 3] = 255
-  }
-
-  if (mode === 'bright') {
-    thickenBright(d, out.width, out.height)
-  }
-
-  ctx.putImageData(img, 0, 0)
+  ctx.putImageData(img, margin, margin)
   return out
+}
+
+/** Upscale + binarize one region for OCR (black text on white). */
+export function preprocessCrop(
+  source: OcrSource,
+  region: OcrRegion,
+  mode: PrepMode = 'otsu',
+): HTMLCanvasElement {
+  const native = cropNative(source, region)
+  if (!native) {
+    const blank = document.createElement('canvas')
+    blank.width = 48
+    blank.height = 24
+    return blank
+  }
+  return renderCrop(analyzeCrop(native, region.id), mode, isKillField(region.id))
 }
 
 function fixOcrDigits(raw: string): string {
@@ -398,15 +606,11 @@ export function parseClockToSeconds(raw: string): number | null {
     return h * 3600 + m * 60 + s
   }
 
-  let m = cleaned.match(/^(\d{1,2}):(\d{2})$/)
+  const m = cleaned.match(/^(\d{1,2}):(\d{2})$/)
   if (!m) {
-    const digits = cleaned.replace(/:/g, '')
-    if (digits.length === 3) {
-      const min = Number(digits[0])
-      const sec = Number(digits.slice(1))
-      if (sec <= 59) return min * 60 + sec
-      return null
-    }
+    // Only a dropped colon in MM:SS is recoverable; "135" could be 1:35 or 11:35
+    if (cleaned.includes(':')) return null
+    const digits = cleaned
     if (digits.length === 4) {
       const min = Number(digits.slice(0, 2))
       const sec = Number(digits.slice(2))
@@ -421,62 +625,35 @@ export function parseClockToSeconds(raw: string): number | null {
   return min * 60 + sec
 }
 
-/** Team kills: one or two digits. Prefer the smallest sane token (HUD is 0–99). */
-export function parseKillStat(raw: string): number | null {
-  const cleaned = fixOcrDigits(raw).replace(/[^\d\s]/g, ' ').trim()
-  const groups = cleaned.match(/\d+/g) ?? []
+/** Team kills: keep a lone 1–2 digit token. Drop gold bleed; never guess from junk. */
+export function parseKillStat(raw: string, field?: OcrField): number | null {
+  const groups = fixOcrDigits(raw).match(/\d+/g) ?? []
   if (!groups.length) return null
-
-  // Prefer a lone 1–2 digit group over longer junk from gold bleed
   const candidates = groups
-    .map((g) => {
-      if (g.length === 1) return Number(g)
-      if (g.length === 2) {
-        // "2" read as "22"
-        if (g[0] === g[1]) return Number(g[0])
-        return Number(g)
-      }
-      // "9441" gold bleed — take only the last digit (kill badge is 0–9 early, teens late)
-      if (g.length >= 3) {
-        return Number(g.slice(-1))
-      }
-      return null
-    })
-    .filter((n): n is number => n != null && Number.isFinite(n) && n >= 0 && n <= 99)
-
+    .filter((g) => g.length <= 2)
+    .map(Number)
+    .filter((n) => Number.isFinite(n) && n >= 0 && n <= 99)
   if (!candidates.length) return null
-  // Shortest plausible: prefer single digit when present and ≤ 9
-  const singles = candidates.filter((n) => n <= 9)
-  if (singles.length === 1) return singles[0]!
-  if (singles.length > 1) {
-    // majority among singles
-    const tallies = new Map<number, number>()
-    for (const n of singles) tallies.set(n, (tallies.get(n) ?? 0) + 1)
-    let best = singles[0]!
-    let hits = 0
-    for (const [n, h] of tallies) {
-      if (h > hits) {
-        best = n
-        hits = h
-      }
-    }
-    return best
-  }
-  return candidates[0]!
+  if (candidates.length === 1) return candidates[0]!
+  if (candidates.every((n) => n === candidates[0])) return candidates[0]!
+  // Blue gold is left of the badge; red gold is right — keep the kill-side token
+  if (field === 'blueKills') return candidates[candidates.length - 1]!
+  if (field === 'redKills') return candidates[0]!
+  return null
 }
 
 export function parseIntStat(raw: string): number | null {
-  const digits = fixOcrDigits(raw).replace(/[^\d]/g, '')
-  if (!digits) return null
-  const n = Number(digits)
+  const groups = fixOcrDigits(raw).match(/\d+/g) ?? []
+  if (groups.length !== 1) return null
+  const n = Number(groups[0])
   if (!Number.isFinite(n)) return null
   return Math.min(999, n)
 }
 
 /** Accepts $1500, $ 1500, 6800, 6.8k, 6,8k */
 export function parseGoldStat(raw: string): number | null {
-  let t = fixOcrDigits(raw)
-    .replace(/[$,\s]/g, '')
+  const t = fixOcrDigits(raw)
+    .replace(/[$\s]/g, '')
     .replace(',', '.')
     .trim()
     .toLowerCase()
@@ -512,14 +689,6 @@ export function parseKdaStat(raw: string): OcrKda | null {
         assists: Number(only[2]),
       }
     }
-    // 4 digits: 10/2/3 → 1023
-    if (only.length === 4) {
-      return {
-        kills: Number(only.slice(0, 2)),
-        deaths: Number(only[2]),
-        assists: Number(only[3]),
-      }
-    }
     return null
   }
   const kills = Number(m[1])
@@ -541,7 +710,7 @@ export function parseField(
   }
   if (field === 'clock') {
     const value = parseClockToSeconds(raw)
-    return { value, kda: null, ok: value != null }
+    return { value, kda: null, ok: value != null && value <= 80 * 60 }
   }
   if (field === 'blueGold' || field === 'redGold') {
     const value = parseGoldStat(raw)
@@ -549,7 +718,7 @@ export function parseField(
   }
   if (field === 'blueTowers' || field === 'redTowers') {
     const value = parseIntStat(raw)
-    if (value == null || value > 8) return { value: null, kda: null, ok: false }
+    if (value == null || value > 11) return { value: null, kda: null, ok: false }
     return { value, kda: null, ok: true }
   }
   if (field === 'blueSeries' || field === 'redSeries') {
@@ -558,7 +727,7 @@ export function parseField(
     return { value, kda: null, ok: true }
   }
   if (field === 'blueKills' || field === 'redKills') {
-    const value = parseKillStat(raw)
+    const value = parseKillStat(raw, field)
     if (value == null || value > 99) return { value: null, kda: null, ok: false }
     return { value, kda: null, ok: true }
   }
@@ -567,42 +736,23 @@ export function parseField(
 }
 
 function whitelistFor(field: OcrField): string {
-  if (field === 'clock') return '0123456789:.'
+  if (field === 'clock') return '0123456789:'
   if (field === 'blueGold' || field === 'redGold') return '0123456789.$kKmM'
   if (isKdaField(field)) return '0123456789/ '
   return '0123456789'
 }
 
-function modesFor(field: OcrField): PrepMode[] {
-  // Prefer one fast pass; fall back only when needed
-  if (field === 'clock' || isKillField(field)) return ['bright', 'invert']
-  if (field === 'blueGold' || field === 'redGold') return ['bright']
-  if (isKdaField(field)) return ['bright', 'invert']
-  return ['bright']
-}
-
-function looksClean(a: Attempt, field: OcrField): boolean {
-  const raw = a.raw.replace(/\s+/g, '')
-  if (!a.ok || !raw) return false
-  if (field === 'clock') {
-    // Accept any raw that parses to a valid match clock (yellow HUD OCR is noisy)
-    return a.value != null && a.value >= 0 && a.value <= 80 * 60
-  }
-  if (/[a-hj-ln-zA-HJ-LN-Z]/.test(raw)) return false
-  if (isKillField(field)) {
-    if (a.value == null) return false
-    return a.value >= 0 && a.value <= 99
-  }
-  if (field === 'blueGold' || field === 'redGold') {
-    return /^\$?\d{2,6}$/.test(raw) || /^\d{1,3}(\.\d)?[kKmM]$/.test(raw)
-  }
-  if (isKdaField(field)) return /^\d{1,2}\/\d{1,2}\/\d{1,2}$/.test(raw)
-  return /^\d{1,2}$/.test(raw)
-}
-
-function isKillField(field: OcrField) {
-  return field === 'blueKills' || field === 'redKills'
-}
+/**
+ * Attempt plan, cheapest-first. Same PSM grouped together to avoid
+ * reconfiguring the worker between attempts.
+ */
+const ATTEMPT_PLAN: ReadonlyArray<readonly [PrepMode, string]> = [
+  ['otsu', '7'],
+  ['strict', '7'],
+  ['gray', '7'],
+  ['otsu', '13'],
+  ['strict', '13'],
+]
 
 type Attempt = {
   raw: string
@@ -610,6 +760,11 @@ type Attempt = {
   value: number | null
   kda: OcrKda | null
   ok: boolean
+}
+
+function attemptKey(a: Attempt): string {
+  if (a.kda) return `${a.kda.kills}/${a.kda.deaths}/${a.kda.assists}`
+  return String(a.value)
 }
 
 async function recognizeOnce(
@@ -623,200 +778,270 @@ async function recognizeOnce(
     const raw = (data.text || '').replace(/\s+/g, ' ').trim()
     const confidence = typeof data.confidence === 'number' ? data.confidence : 0
     const parsed = parseField(field, raw)
-    return {
-      raw,
-      confidence,
-      value: parsed.value,
-      kda: parsed.kda,
-      ok: parsed.ok,
-    }
+    return { raw, confidence, ...parsed }
   } catch {
-    // Worker dies on HMR / tab freeze — rebuild once and skip this attempt
+    // Worker dies on HMR / tab freeze — rebuild on next call
     await destroyOcrWorker()
-    return {
-      raw: '',
-      confidence: 0,
-      value: null,
-      kda: null,
-      ok: false,
-    }
+    return { raw: '', confidence: 0, value: null, kda: null, ok: false }
   }
 }
 
-function scoreAttempt(a: Attempt, field: OcrField): number {
-  if (!a.ok) return a.confidence * 0.15
-  let score = 40 + a.confidence + (a.raw.length > 0 ? 5 : 0)
-  if (isKillField(field) && a.value != null) {
-    const raw = a.raw.replace(/\s+/g, '')
-    // Prefer real HUD digits — penalize doubles ("22") and long bleed ("9441")
-    if (/^(\d)\1$/.test(raw)) score -= 40
-    if (raw.replace(/\D/g, '').length > 2) score -= 25
-    if (a.value <= 9) score += 28
-    else if (a.value <= 99) score += 14
+type Tally = { key: string; votes: number; conf: number; best: Attempt }
+
+function tallyAttempts(attempts: Attempt[]): Tally[] {
+  const map = new Map<string, Tally>()
+  for (const a of attempts) {
+    if (!a.ok) continue
+    const key = attemptKey(a)
+    const t = map.get(key)
+    if (!t) map.set(key, { key, votes: 1, conf: a.confidence, best: a })
+    else {
+      t.votes++
+      t.conf += a.confidence
+      if (a.confidence > t.best.confidence) t.best = a
+    }
   }
-  if (field === 'clock' && a.value != null) score += 15
-  if (isKdaField(field) && a.kda) score += 20
-  return score
+  return [...map.values()].sort((x, y) => y.votes - x.votes || y.conf - x.conf)
 }
 
-function strongEnough(a: Attempt, field: OcrField): boolean {
-  if (!a.ok) return false
-  // Same bar as clock: a clean parse is enough to stop hunting
-  if (looksClean(a, field)) return true
-  return a.confidence >= 62
+function settled(tallies: Tally[]): boolean {
+  const top = tallies[0]
+  if (!top) return false
+  const second = tallies[1]?.votes ?? 0
+  if (top.votes >= 2 && second === 0) return true
+  return top.votes >= 3 && top.votes >= second + 2
 }
 
-export async function readRegion(
-  source: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement,
-  region: OcrRegion,
-): Promise<OcrReading> {
-  const attempts: Attempt[] = []
-  const modes = modesFor(region.id)
-  const psms =
-    region.id === 'clock' || isKillField(region.id)
-      ? ['7']
-      : isKdaField(region.id)
-        ? ['7']
-        : ['7']
-  const scale =
-    region.id === 'clock' || isKillField(region.id) ? 4 : 3
-
-  for (const mode of modes) {
-    const crop = preprocessCrop(source, region, mode, scale)
-    for (const psm of psms) {
-      try {
-        attempts.push(await recognizeOnce(crop, region.id, psm))
-      } catch {
-        /* try next */
-      }
-    }
-    const bestSoFar = attempts.reduce(
-      (b, a) =>
-        scoreAttempt(a, region.id) > scoreAttempt(b, region.id) ? a : b,
-      attempts[0]!,
-    )
-    if (bestSoFar && strongEnough(bestSoFar, region.id)) break
-  }
-
-  if (!attempts.length) {
-    return {
-      field: region.id,
-      raw: '',
-      value: null,
-      kda: null,
-      ok: false,
-      confidence: 0,
-    }
-  }
-
-  const best = attempts.reduce((b, a) =>
-    scoreAttempt(a, region.id) > scoreAttempt(b, region.id) ? a : b,
-  )
-
-  // Majority vote among ok kill parses — beat a one-off "7"
-  let chosen = best
-  if (isKillField(region.id)) {
-    const okVals = attempts.filter(
-      (a) => a.ok && a.value != null && a.value <= 99,
-    )
-    if (okVals.length >= 2) {
-      const tallies = new Map<number, { hits: number; conf: number; a: Attempt }>()
-      for (const a of okVals) {
-        const v = a.value!
-        const cur = tallies.get(v)
-        if (!cur) tallies.set(v, { hits: 1, conf: a.confidence, a })
-        else {
-          cur.hits++
-          cur.conf += a.confidence
-          if (a.confidence > cur.a.confidence) cur.a = a
-        }
-      }
-      let winner: { hits: number; conf: number; a: Attempt } | null = null
-      for (const t of tallies.values()) {
-        if (
-          !winner ||
-          t.hits > winner.hits ||
-          (t.hits === winner.hits && t.conf > winner.conf)
-        ) {
-          winner = t
-        }
-      }
-      if (winner && (winner.hits >= 2 || scoreAttempt(winner.a, region.id) >= scoreAttempt(best, region.id))) {
-        chosen = winner.a
-      }
-    }
-  }
-
-  const ok =
-    chosen.ok &&
-    (looksClean(chosen, region.id) ||
-      (region.id === 'clock' && chosen.value != null) ||
-      chosen.confidence >= 70)
-  let confidence = chosen.confidence
-  if (ok && looksClean(chosen, region.id)) {
-    confidence = Math.max(confidence, 78)
-  }
-
+function emptyReading(field: OcrField, at: number): OcrReading {
   return {
-    field: region.id,
-    raw: chosen.raw,
-    value: ok ? chosen.value : null,
-    kda: ok ? chosen.kda : null,
-    ok,
-    confidence,
+    field,
+    raw: '',
+    value: null,
+    kda: null,
+    ok: false,
+    confidence: 0,
+    votes: 0,
+    okAttempts: 0,
+    at,
   }
+}
+
+function readingFromTallies(
+  field: OcrField,
+  at: number,
+  attempts: Attempt[],
+  loneOkConf: number,
+): OcrReading {
+  const tallies = tallyAttempts(attempts)
+  const top = tallies[0]
+  if (!top) {
+    const loudest = attempts.reduce((b, a) => (a.confidence > b.confidence ? a : b))
+    return { ...emptyReading(field, at), raw: loudest.raw }
+  }
+  const second = tallies[1]?.votes ?? 0
+  const okAttempts = tallies.reduce((s, t) => s + t.votes, 0)
+  const avgConf = top.conf / top.votes
+  const ok =
+    (top.votes >= 2 && top.votes > second) ||
+    (top.votes === 1 && okAttempts === 1 && avgConf >= loneOkConf)
+  return {
+    field,
+    raw: top.best.raw,
+    value: ok ? top.best.value : null,
+    kda: ok ? top.best.kda : null,
+    ok,
+    confidence: Math.round(avgConf * (top.votes / Math.max(1, okAttempts))),
+    votes: top.votes,
+    okAttempts,
+    at,
+  }
+}
+
+const KILL_ATTEMPT_PLAN: ReadonlyArray<readonly [PrepMode, string]> = [
+  ['otsu', '7'],
+  ['strict', '7'],
+]
+
+async function recognizeKillCrop(
+  native: HTMLCanvasElement,
+  field: OcrField,
+  at: number,
+): Promise<OcrReading> {
+  const analysis = analyzeCrop(native, field)
+  const rendered = new Map<PrepMode, HTMLCanvasElement>()
+  const attempts: Attempt[] = []
+
+  for (const [mode, psm] of KILL_ATTEMPT_PLAN) {
+    let canvas = rendered.get(mode)
+    if (!canvas) {
+      canvas = renderCrop(analysis, mode, true)
+      rendered.set(mode, canvas)
+    }
+    const attempt = await recognizeOnce(canvas, field, psm)
+    attempts.push(attempt)
+    // Same bar as the clock: a clean 1–2 digit parse is enough to stop
+    if (attempt.ok && attempt.value != null && attempt.confidence >= 58) {
+      return {
+        field,
+        raw: attempt.raw,
+        value: attempt.value,
+        kda: null,
+        ok: true,
+        confidence: attempt.confidence,
+        votes: 1,
+        okAttempts: 1,
+        at,
+      }
+    }
+  }
+
+  return readingFromTallies(field, at, attempts, 70)
+}
+
+/**
+ * Multi-variant consensus: render the crop several ways, OCR each, and only
+ * report a value that independent variants agree on.
+ */
+async function recognizeCrop(
+  native: HTMLCanvasElement,
+  field: OcrField,
+  at: number,
+): Promise<OcrReading> {
+  if (isKillField(field)) return recognizeKillCrop(native, field, at)
+
+  const analysis = analyzeCrop(native, field)
+  const rendered = new Map<PrepMode, HTMLCanvasElement>()
+  const attempts: Attempt[] = []
+
+  for (const [mode, psm] of ATTEMPT_PLAN) {
+    let canvas = rendered.get(mode)
+    if (!canvas) {
+      canvas = renderCrop(analysis, mode)
+      rendered.set(mode, canvas)
+    }
+    const attempt = await recognizeOnce(canvas, field, psm)
+    attempts.push(attempt)
+    if (field === 'clock' && attempt.ok && attempt.value != null && attempt.confidence >= 55) {
+      return {
+        field,
+        raw: attempt.raw,
+        value: attempt.value,
+        kda: null,
+        ok: true,
+        confidence: attempt.confidence,
+        votes: 1,
+        okAttempts: 1,
+        at,
+      }
+    }
+    if (attempts.length >= 2 && settled(tallyAttempts(attempts))) break
+  }
+
+  return readingFromTallies(field, at, attempts, 90)
+}
+
+export type RegionSnapshot = {
+  region: OcrRegion
+  crop: HTMLCanvasElement | null
+  signature: Float32Array | null
+  at: number
+}
+
+/**
+ * Sample every region from the same video frame in one synchronous pass.
+ * Only the small region crops are copied, never the whole 1080p frame.
+ */
+export function snapshotRegions(source: OcrSource, regions: OcrRegion[]): RegionSnapshot[] {
+  const at = performance.now()
+  return regions.map((region) => {
+    const crop = cropNative(source, region)
+    return { region, crop, signature: crop ? signatureOf(crop) : null, at }
+  })
+}
+
+const FORCE_REFRESH_MS = 6000
+
+const readCache = new Map<
+  OcrField,
+  { box: string; signature: Float32Array; reading: OcrReading; at: number }
+>()
+
+export function resetOcrCache(field?: OcrField) {
+  if (field) readCache.delete(field)
+  else readCache.clear()
+}
+
+function boxKey(r: OcrRegion) {
+  return `${r.x.toFixed(5)},${r.y.toFixed(5)},${r.w.toFixed(5)},${r.h.toFixed(5)}`
+}
+
+export async function readSnapshot(snap: RegionSnapshot): Promise<OcrReading> {
+  const { region, crop, signature, at } = snap
+  if (!crop || !signature) return emptyReading(region.id, at)
+
+  const box = boxKey(region)
+  const prev = readCache.get(region.id)
+  if (
+    prev &&
+    prev.box === box &&
+    prev.reading.ok &&
+    at - prev.at < FORCE_REFRESH_MS &&
+    !signatureChanged(prev.signature, signature, isKillField(region.id))
+  ) {
+    return { ...prev.reading, at, cached: true }
+  }
+
+  const reading = await recognizeCrop(crop, region.id, at)
+  readCache.set(region.id, { box, signature, reading, at })
+  return reading
+}
+
+export async function readSnapshots(snaps: RegionSnapshot[]): Promise<OcrReading[]> {
+  const out: OcrReading[] = []
+  for (const snap of snaps) {
+    try {
+      out.push(await readSnapshot(snap))
+    } catch {
+      out.push(emptyReading(snap.region.id, snap.at))
+    }
+  }
+  return out
+}
+
+export async function readRegion(source: OcrSource, region: OcrRegion): Promise<OcrReading> {
+  const [snap] = snapshotRegions(source, [region])
+  return readSnapshot(snap!)
 }
 
 export async function readAllRegions(
-  source: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement,
+  source: OcrSource,
   regions: OcrRegion[],
 ): Promise<OcrReading[]> {
   const enabled = regions.filter((r) => r.enabled && r.w >= 0.008 && r.h >= 0.008)
-  // Top bar first (fewer, more important), then KDA
   const ordered = [
     ...enabled.filter((r) => !isKdaField(r.id)),
     ...enabled.filter((r) => isKdaField(r.id)),
   ]
-  const out: OcrReading[] = []
-  for (const region of ordered) {
-    try {
-      out.push(await readRegion(source, region))
-    } catch {
-      out.push({
-        field: region.id,
-        raw: '',
-        value: null,
-        kda: null,
-        ok: false,
-        confidence: 0,
-      })
-    }
-  }
-  return out
+  return readSnapshots(snapshotRegions(source, ordered))
 }
 
 export function grabVideoFrame(video: HTMLVideoElement): HTMLCanvasElement | null {
   const w = video.videoWidth
   const h = video.videoHeight
   if (!w || !h) return null
-  // Keep HUD digits sharp — 720p was making "13" read as "7"
-  const maxW = 1920
-  const scale = w > maxW ? maxW / w : 1
   const c = document.createElement('canvas')
-  c.width = Math.max(1, Math.round(w * scale))
-  c.height = Math.max(1, Math.round(h * scale))
+  c.width = w
+  c.height = h
   const ctx = c.getContext('2d', { alpha: false })!
-  ctx.imageSmoothingEnabled = scale < 1
-  ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(video, 0, 0, c.width, c.height)
+  ctx.drawImage(video, 0, 0, w, h)
   return c
 }
 
 /** Debug: return the preprocessed crop canvas for the selected region. */
 export function previewRegionCrop(
-  source: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement,
+  source: OcrSource,
   region: OcrRegion,
-  mode: PrepMode = 'bright',
+  mode: PrepMode = 'otsu',
 ): HTMLCanvasElement {
-  return preprocessCrop(source, region, mode, 4)
+  return preprocessCrop(source, region, mode)
 }

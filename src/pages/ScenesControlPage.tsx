@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import ControlNav from '../components/ControlNav'
+import StudioShell from '../components/cme/StudioShell'
+import { absoluteUrl, useLanOrigins } from '../lib/lanOrigins'
 import '../styles/draft-room.css'
 
 type Scene = {
@@ -14,34 +15,53 @@ type Scene = {
 
 const SCENES: Scene[] = [
   {
+    id: 'standby',
+    name: 'Standby / Starting Soon',
+    blurb:
+      'Animated "Live — Starting Soon" holding screen. Add ?minutes=10 or ?until=20:30 for a countdown.',
+    overlayPath: '/overlay/standby',
+    size: '1920 × 1080',
+  },
+  {
     id: 'draft',
     name: 'Draft / Ban-Pick',
-    blurb: 'Bottom dock with bans, picks, timer, and reveal popup.',
+    blurb: 'Bottom dock with bans, picks, and reveal popup.',
     overlayPath: '/overlay',
     controlPath: '/control',
     size: '1920 × 1080',
   },
   {
     id: 'lineup',
-    name: 'Team Lineup',
-    blurb: 'Blue vs Red dual roster — 5 vertical player cards per side.',
+    name: 'Team Reveal',
+    blurb: 'Single-team roster reveal with cutout photos, accent stage, and reveal sequence.',
     overlayPath: '/overlay/lineup',
     controlPath: '/control/lineup',
     size: '1920 × 1080',
   },
   {
-    id: 'match-preview',
-    name: 'Match Preview',
-    blurb: 'Blue vs Red matchup card from the active tournament.',
-    overlayPath: '/overlay/match-preview',
-    controlPath: '/control/tournament',
+    id: 'match',
+    name: 'Match Day',
+    blurb:
+      'Head-to-head match scene for today — featured players, team tags, and Match/Game banner synced from Draft + Live Desk.',
+    overlayPath: '/overlay/match',
+    controlPath: '/control/live',
     size: '1920 × 1080',
   },
   {
-    id: 'standby',
-    name: 'Live on Standby',
-    blurb: 'Looping blank-hold splash — school logos + CME FEST MLBB.',
-    overlayPath: '/overlay/standby',
+    id: 'victory',
+    name: 'Victory',
+    blurb:
+      'Post-game victory board — winning team full name plus MVP player photo and name from Gameplay desk.',
+    overlayPath: '/overlay/victory',
+    controlPath: '/control/game',
+    size: '1920 × 1080',
+  },
+  {
+    id: 'match-preview',
+    name: 'Match Preview',
+    blurb: 'Blue vs Red logo matchup card from the active tournament.',
+    overlayPath: '/overlay/match-preview',
+    controlPath: '/control/tournament',
     size: '1920 × 1080',
   },
   {
@@ -55,10 +75,18 @@ const SCENES: Scene[] = [
   {
     id: 'caster',
     name: 'Shoutcasters',
-    blurb: 'Lower-third name cards for shoutcasters.',
-    overlayPath: '/overlay/caster',
+    blurb: 'Full shoutcaster desk — naval frame, camera hole, and live nameplate.',
+    overlayPath: '/overlay/caster?v=desk7',
     controlPath: '/control/casters',
     size: '1920 × 1080',
+  },
+  {
+    id: 'gameplay-preview',
+    name: 'Gameplay Preview',
+    blurb: 'Windows viewer for shoutcasters — live BlueStacks / game feed after Capture window.',
+    overlayPath: '/watch/gameplay',
+    controlPath: '/control/casters?tab=preview',
+    size: 'Viewer window',
   },
   {
     id: 'bracket',
@@ -102,15 +130,8 @@ const SCENES: Scene[] = [
   },
 ]
 
-function obsOrigin() {
-  if (typeof window === 'undefined') return 'http://localhost:5173'
-  const host = window.location.hostname
-  if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:5173'
-  return `http://${host}:5173`
-}
-
 export default function ScenesControlPage() {
-  const origin = useMemo(() => obsOrigin(), [])
+  const origins = useLanOrigins()
   const [copied, setCopied] = useState<string | null>(null)
   const [preview, setPreview] = useState(SCENES[0]?.overlayPath ?? '/overlay')
 
@@ -121,9 +142,30 @@ export default function ScenesControlPage() {
     })
   }
 
-  const previewUrl = `${origin}${preview}`
+  const localPreview = absoluteUrl(origins.local, preview)
+  const lanPreview = origins.lan ? absoluteUrl(origins.lan, preview) : null
 
   return (
+    <StudioShell
+      crumb={
+        <>
+          <Link to="/control/tournament">Workspace</Link>
+          <span>/</span>
+          <span>Scenes</span>
+        </>
+      }
+      note={
+        <>
+          <span className="dot" />
+          Broadcast workspace
+        </>
+      }
+      topRight={
+        <a className="btn quiet small" href={localPreview} target="_blank" rel="noreferrer">
+          Overlay
+        </a>
+      }
+    >
     <div className="cme-draft">
       <header className="topbar">
         <div className="brand">
@@ -135,11 +177,10 @@ export default function ScenesControlPage() {
             <div className="brand-sub">MOBILE LEGENDS: BANG BANG</div>
           </div>
         </div>
-        <ControlNav />
         <div className="operator">
           <a
             className="preview-tag"
-            href={previewUrl}
+            href={localPreview}
             target="_blank"
             rel="noreferrer"
           >
@@ -163,18 +204,41 @@ export default function ScenesControlPage() {
 
         <p
           style={{
-            margin: '0 0 18px',
+            margin: '0 0 10px',
             color: 'var(--muted)',
             fontSize: 14,
-            maxWidth: 720,
+            maxWidth: 820,
           }}
         >
-          OBS Browser Sources must use <b style={{ color: 'var(--text)' }}>HTTP</b>{' '}
-          (not https) — e.g.{' '}
-          <code style={{ color: '#68adff' }}>http://localhost:5173/overlay/game</code>.
-          Self-signed HTTPS blanks out in OBS. Control desk + overlays sync live over
-          the same hub.
+          OBS on this PC → use <b style={{ color: 'var(--text)' }}>Localhost</b>. Laptop /
+          other PCs on Wi‑Fi → use <b style={{ color: 'var(--text)' }}>LAN IP</b>. Always{' '}
+          <b style={{ color: 'var(--text)' }}>HTTP</b> (not https) so OBS does not go blank.
         </p>
+        <div
+          style={{
+            margin: '0 0 18px',
+            padding: '10px 12px',
+            borderRadius: 8,
+            border: '1px solid var(--line)',
+            background: '#121824',
+            fontSize: 13,
+            color: 'var(--muted)',
+            maxWidth: 820,
+          }}
+        >
+          <div>
+            Localhost ·{' '}
+            <code style={{ color: '#68adff' }}>{origins.local}</code>
+          </div>
+          <div style={{ marginTop: 4 }}>
+            LAN (laptop) ·{' '}
+            {origins.lan ? (
+              <code style={{ color: '#7ddea8' }}>{origins.lan}</code>
+            ) : (
+              <span>detecting…</span>
+            )}
+          </div>
+        </div>
 
         <div
           style={{
@@ -186,7 +250,10 @@ export default function ScenesControlPage() {
         >
           <div style={{ display: 'grid', gap: 12 }}>
             {SCENES.map((scene) => {
-              const url = `${origin}${scene.overlayPath}`
+              const localUrl = absoluteUrl(origins.local, scene.overlayPath)
+              const lanUrl = origins.lan
+                ? absoluteUrl(origins.lan, scene.overlayPath)
+                : null
               const active = preview === scene.overlayPath
               return (
                 <article
@@ -211,7 +278,7 @@ export default function ScenesControlPage() {
                       alignItems: 'flex-start',
                     }}
                   >
-                    <div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <div
                         style={{
                           fontWeight: 750,
@@ -231,21 +298,30 @@ export default function ScenesControlPage() {
                       >
                         {scene.blurb}
                       </div>
-                      <code
-                        style={{
-                          display: 'block',
-                          marginTop: 10,
-                          padding: '8px 10px',
-                          borderRadius: 6,
-                          background: '#0a0e16',
-                          border: '1px solid var(--line)',
-                          color: '#68adff',
-                          fontSize: 12,
-                          wordBreak: 'break-all',
-                        }}
-                      >
-                        {url}
-                      </code>
+
+                      <LinkBlock
+                        label="Localhost · this PC / OBS"
+                        url={localUrl}
+                        tone="#68adff"
+                      />
+                      {lanUrl ? (
+                        <LinkBlock
+                          label="LAN IP · laptop / other PCs"
+                          url={lanUrl}
+                          tone="#7ddea8"
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 12,
+                            color: 'var(--muted)',
+                          }}
+                        >
+                          LAN IP detecting…
+                        </div>
+                      )}
+
                       <div
                         style={{
                           marginTop: 6,
@@ -271,13 +347,22 @@ export default function ScenesControlPage() {
                     <button
                       type="button"
                       className="btn gold small"
-                      onClick={() => copy(url, scene.id)}
+                      onClick={() => copy(localUrl, `${scene.id}-local`)}
                     >
-                      {copied === scene.id ? 'Copied' : 'Copy OBS link'}
+                      {copied === `${scene.id}-local` ? 'Copied' : 'Copy localhost'}
                     </button>
+                    {lanUrl ? (
+                      <button
+                        type="button"
+                        className="btn small"
+                        onClick={() => copy(lanUrl, `${scene.id}-lan`)}
+                      >
+                        {copied === `${scene.id}-lan` ? 'Copied' : 'Copy LAN IP'}
+                      </button>
+                    ) : null}
                     <a
                       className="btn ghost small"
-                      href={url}
+                      href={lanUrl ?? localUrl}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -339,9 +424,9 @@ export default function ScenesControlPage() {
               }}
             >
               <iframe
-                key={previewUrl}
+                key={localPreview}
                 title="Scene preview"
-                src={previewUrl}
+                src={localPreview}
                 style={{
                   position: 'absolute',
                   inset: 0,
@@ -353,18 +438,26 @@ export default function ScenesControlPage() {
                 }}
               />
             </div>
-            <div style={{ padding: 12, display: 'flex', gap: 8 }}>
+            <div style={{ padding: 12, display: 'grid', gap: 8 }}>
               <button
                 type="button"
                 className="btn gold small"
-                style={{ flex: 1 }}
-                onClick={() => copy(previewUrl, 'preview')}
+                onClick={() => copy(localPreview, 'preview-local')}
               >
-                {copied === 'preview' ? 'Copied' : 'Copy this link'}
+                {copied === 'preview-local' ? 'Copied' : 'Copy localhost'}
               </button>
+              {lanPreview ? (
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={() => copy(lanPreview, 'preview-lan')}
+                >
+                  {copied === 'preview-lan' ? 'Copied' : 'Copy LAN IP'}
+                </button>
+              ) : null}
               <a
                 className="btn ghost small"
-                href={previewUrl}
+                href={lanPreview ?? localPreview}
                 target="_blank"
                 rel="noreferrer"
               >
@@ -374,6 +467,47 @@ export default function ScenesControlPage() {
           </aside>
         </div>
       </main>
+    </div>
+    </StudioShell>
+  )
+}
+
+function LinkBlock({
+  label,
+  url,
+  tone,
+}: {
+  label: string
+  url: string
+  tone: string
+}) {
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div
+        style={{
+          fontSize: 10,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: 'var(--muted)',
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+      <code
+        style={{
+          display: 'block',
+          padding: '8px 10px',
+          borderRadius: 6,
+          background: '#0a0e16',
+          border: '1px solid var(--line)',
+          color: tone,
+          fontSize: 12,
+          wordBreak: 'break-all',
+        }}
+      >
+        {url}
+      </code>
     </div>
   )
 }

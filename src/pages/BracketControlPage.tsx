@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Brand, Icon } from '../components/cme/Icon'
-import ControlNav from '../components/ControlNav'
+import StudioShell from '../components/cme/StudioShell'
 import BracketBoard, { MatchList } from '../components/bracket/BracketBoard'
 import { getTeam, roundLabel, type BracketMatch } from '../lib/bracketEngine'
 import { initBracketSync, useBracketStore } from '../store/bracketStore'
@@ -101,10 +102,25 @@ export default function BracketControlPage() {
   })()
 
   return (
+    <StudioShell
+      presenting={present}
+      crumb={
+        <>
+          <Link to="/control/tournament">Workspace</Link>
+          <span>/</span>
+          <span>Bracket</span>
+        </>
+      }
+      note={
+        <>
+          <span className="dot" />
+          {done} matches decided
+        </>
+      }
+    >
     <div className={`cme-br${view === 'matches' ? ' show-list' : ''}${present ? ' presentation-mode' : ''}`}>
       <header className="topbar">
         <Brand />
-        <ControlNav />
       </header>
       <main className="workspace">
         <div className="heading">
@@ -176,7 +192,7 @@ export default function BracketControlPage() {
               onSelect={openMatch}
               onSwapSlots={(from, to) => {
                 const ok = store.swapSlots(from, to)
-                if (ok) setToast('Teams swapped — opening placements updated.')
+                if (ok) setToast('Opening matchups updated')
                 return ok
               }}
             />
@@ -188,14 +204,14 @@ export default function BracketControlPage() {
           onSelect={openMatch}
           onSwapSlots={(from, to) => {
             const ok = store.swapSlots(from, to)
-            if (ok) setToast('Teams swapped — opening placements updated.')
+            if (ok) setToast('Opening matchups updated')
             return ok
           }}
         />
         <div className="caption">
           <span>
-            Drag only on unfinished quarterfinals. Semis / finals and eliminated
-            matches are locked.
+            Opening round: drag a team onto another slot to rearrange. Click a
+            match to enter the result.
           </span>
           <span className="result-shortcut">
             <Icon name="trophy" />
@@ -261,6 +277,7 @@ export default function BracketControlPage() {
         {toast}
       </div>
     </div>
+    </StudioShell>
   )
 }
 

@@ -5,6 +5,7 @@ import { createServer as createHttpsServer, type Server as HttpsServer } from 'n
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { networkInterfaces } from 'node:os'
+import { spawn } from 'node:child_process'
 import selfsigned from 'selfsigned'
 import { WebSocketServer, type WebSocket } from 'ws'
 
@@ -22,6 +23,139 @@ type Json = unknown
 type HubState = Record<SyncChannel, Json>
 
 const PHONE_HTTPS_PORT = 5174
+const CHANNELS: SyncChannel[] = [
+  'draft',
+  'gameplay',
+  'stinger',
+  'bracket',
+  'cams',
+  'lineup',
+  'tournament',
+  'casters',
+]
+
+function hubDir() {
+  return join(process.cwd(), 'node_modules', '.cache', 'obs-sync')
+}
+
+function hubPath() {
+  return join(hubDir(), 'hub-state.json')
+}
+
+function lockedTournamentPath() {
+  return join(hubDir(), 'tournament-locked.json')
+}
+
+function isNamedPlayer(p: { name?: unknown } | null | undefined) {
+  const n = String(p?.name || '').trim()
+  return Boolean(n) && !/^PLAYER\s*\d+$/i.test(n)
+}
+
+function tournamentNamedCount(tournament: unknown): number {
+  if (!tournament || typeof tournament !== 'object') return 0
+  const raw = tournament as { tournaments?: { teams?: { players?: { name?: unknown }[] }[] }[] }
+  const projects = Array.isArray(raw.tournaments) ? raw.tournaments : []
+  let n = 0
+  for (const proj of projects) {
+    for (const team of proj.teams || []) {
+      for (const player of team.players || []) {
+        if (isNamedPlayer(player)) n += 1
+      }
+    }
+  }
+  return n
+}
+
+function readJsonFile(path: string): unknown {
+  try {
+    if (!existsSync(path)) return null
+    return JSON.parse(readFileSync(path, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function loadLockedTournament(): unknown {
+  return readJsonFile(lockedTournamentPath())
+}
+
+function writeLockedTournament(payload: unknown) {
+  try {
+    mkdirSync(hubDir(), { recursive: true })
+    writeFileSync(lockedTournamentPath(), JSON.stringify(payload), 'utf8')
+  } catch (err) {
+    console.warn('[obs-sync] could not write tournament-locked.json:', err)
+  }
+}
+
+function richerTournament(a: unknown, b: unknown): unknown {
+  return tournamentNamedCount(a) >= tournamentNamedCount(b) ? a : b
+}
+
+function protectTournament(incoming: unknown, current: unknown): unknown {
+  const locked = loadLockedTournament()
+  const floor = Math.max(tournamentNamedCount(current), tournamentNamedCount(locked))
+  const next = tournamentNamedCount(incoming)
+  if (floor > 0 && next < floor) {
+    console.warn(
+      `[obs-sync] kept ${floor} named players — refused thinner tournament (${next})`,
+    )
+    return richerTournament(current, locked)
+  }
+  if (next > 0 && next >= tournamentNamedCount(locked)) {
+    writeLockedTournament(incoming)
+  }
+  return incoming
+}
+
+function loadHubFromDisk(): HubState {
+  const empty: HubState = {
+    draft: null,
+    gameplay: null,
+    stinger: null,
+    bracket: null,
+    cams: null,
+    lineup: null,
+    tournament: null,
+    casters: null,
+  }
+  try {
+    if (!existsSync(hubPath())) return empty
+    const raw = JSON.parse(readFileSync(hubPath(), 'utf8')) as Partial<HubState>
+    for (const ch of CHANNELS) {
+      if (raw[ch] !== undefined) empty[ch] = raw[ch] as Json
+    }
+  } catch (err) {
+    console.warn('[obs-sync] could not load hub-state.json:', err)
+  }
+  empty.tournament = protectTournament(empty.tournament, empty.tournament) as Json
+  const locked = loadLockedTournament()
+  if (tournamentNamedCount(locked) > tournamentNamedCount(empty.tournament)) {
+    empty.tournament = locked as Json
+    console.warn(
+      `[obs-sync] restored locked tournament (${tournamentNamedCount(locked)} named players)`,
+    )
+  }
+  return empty
+}
+
+function persistHubToDisk(state: HubState) {
+  try {
+    mkdirSync(hubDir(), { recursive: true })
+    const disk = readJsonFile(hubPath()) as Partial<HubState> | null
+    const tournament = protectTournament(
+      state.tournament,
+      disk?.tournament ?? state.tournament,
+    )
+    writeFileSync(
+      hubPath(),
+      JSON.stringify({ ...state, tournament }),
+      'utf8',
+    )
+  } catch (err) {
+    console.warn('[obs-sync] could not write hub-state.json:', err)
+  }
+}
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -39,6 +173,59 @@ function sendJson(res: ServerResponse, status: number, data: Json) {
   res.setHeader('Cache-Control', 'no-store')
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.end(body)
+}
+
+let importRunning: Promise<Json> | null = null
+
+/** Pull Google Sheet + download Drive photos into public/form-media. */
+function runFormImport(fresh: boolean): Promise<Json> {
+  if (importRunning) return importRunning
+  importRunning = new Promise<Json>((resolve, reject) => {
+    const script = join(process.cwd(), 'scripts', 'import-form-responses.mjs')
+    const args = [script, ...(fresh ? ['--fresh'] : [])]
+    console.log(`[obs-sync] import-form starting${fresh ? ' (fresh downloads)' : ''}…`)
+    const child = spawn(process.execPath, args, {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let stdout = ''
+    let stderr = ''
+    child.stdout?.on('data', (chunk: Buffer) => {
+      const s = chunk.toString()
+      stdout += s
+      process.stdout.write(s)
+    })
+    child.stderr?.on('data', (chunk: Buffer) => {
+      const s = chunk.toString()
+      stderr += s
+      process.stderr.write(s)
+    })
+    child.on('error', (err) => {
+      importRunning = null
+      reject(err)
+    })
+    child.on('close', (code) => {
+      importRunning = null
+      const backup = join(process.cwd(), 'public', 'cme-form-import.json')
+      if (code !== 0 || !existsSync(backup)) {
+        reject(
+          new Error(
+            stderr.trim() ||
+              stdout.trim() ||
+              `import exited with code ${code ?? 'unknown'}`,
+          ),
+        )
+        return
+      }
+      try {
+        resolve(JSON.parse(readFileSync(backup, 'utf8')) as Json)
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)))
+      }
+    })
+  })
+  return importRunning
 }
 
 function lanIps(): string[] {
@@ -97,17 +284,6 @@ async function loadOrCreatePhoneCert(): Promise<{ private: string; cert: string 
   return { private: attrs.private, cert: attrs.cert }
 }
 
-const CHANNELS: SyncChannel[] = [
-  'draft',
-  'gameplay',
-  'stinger',
-  'bracket',
-  'cams',
-  'lineup',
-  'tournament',
-  'casters',
-]
-
 function isChannel(v: unknown): v is SyncChannel {
   return typeof v === 'string' && (CHANNELS as string[]).includes(v)
 }
@@ -116,17 +292,18 @@ function isChannel(v: unknown): v is SyncChannel {
  * Sync hub + optional phone HTTPS port.
  * - :5173 HTTP  → OBS Browser Sources (no SSL blank page)
  * - :5174 HTTPS → phones (camera needs secure context)
+ * Hub state is mirrored to disk so restart does not wipe tournaments / drafts.
  */
 export function obsSyncPlugin(): Plugin {
-  const state: HubState = {
-    draft: null,
-    gameplay: null,
-    stinger: null,
-    bracket: null,
-    cams: null,
-    lineup: null,
-    tournament: null,
-    casters: null,
+  const state: HubState = loadHubFromDisk()
+  let persistTimer: ReturnType<typeof setTimeout> | null = null
+
+  function schedulePersist() {
+    if (persistTimer != null) return
+    persistTimer = setTimeout(() => {
+      persistTimer = null
+      persistHubToDisk(state)
+    }, 400)
   }
 
   const sockets = new Set<WebSocket>()
@@ -182,8 +359,20 @@ export function obsSyncPlugin(): Plugin {
   }
 
   function setChannel(channel: SyncChannel, payload: Json, except?: WebSocket) {
-    state[channel] = payload
-    broadcastChannel(channel, payload, except)
+    const next =
+      channel === 'tournament'
+        ? (protectTournament(payload, state.tournament) as Json)
+        : payload
+    if (channel === 'tournament' && next !== payload) {
+      // Keep the richer roster in memory and on disk; do not broadcast a wipe.
+      state.tournament = next
+      schedulePersist()
+      broadcastChannel('tournament', next, except)
+      return
+    }
+    state[channel] = next
+    schedulePersist()
+    broadcastChannel(channel, next, except)
   }
 
   wss.on('connection', (ws) => {
@@ -311,6 +500,75 @@ export function obsSyncPlugin(): Plugin {
       return
     }
 
+    if (url === '/api/lan' && req.method === 'GET') {
+      // HTTP :5173 for OBS; HTTPS :5174 for camera / window share over Wi‑Fi
+      sendJson(res, 200, {
+        ips: lanIps(),
+        port: 5173,
+        httpsPort: PHONE_HTTPS_PORT,
+      })
+      return
+    }
+
+    // Download self-signed cert so Windows can trust Wi‑Fi HTTPS (Select window)
+    if (
+      (url === '/api/cert.pem' || url === '/api/lan/cert') &&
+      req.method === 'GET'
+    ) {
+      const certPath = join(hubDir(), 'phone-cert.pem')
+      try {
+        if (!existsSync(certPath)) {
+          // Ensure cert exists even if HTTPS boot lagged
+          void loadOrCreatePhoneCert().then(() => {
+            /* next request will serve it */
+          })
+          sendJson(res, 503, {
+            ok: false,
+            error: 'Certificate not ready yet — refresh in a second',
+          })
+          return
+        }
+        const body = readFileSync(certPath)
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/x-pem-file')
+        res.setHeader(
+          'Content-Disposition',
+          'attachment; filename="cme-wifi-cert.pem"',
+        )
+        res.setHeader('Cache-Control', 'no-store')
+        res.end(body)
+      } catch (err) {
+        sendJson(res, 500, {
+          ok: false,
+          error: err instanceof Error ? err.message : 'cert read failed',
+        })
+      }
+      return
+    }
+
+    // Live Google Sheet → download Drive photos to public/form-media → merge payload
+    if (url === '/api/sync/import-form' && (req.method === 'POST' || req.method === 'GET')) {
+      const fresh =
+        req.method === 'POST'
+          ? true
+          : (req.url || '').includes('fresh=1')
+      void runFormImport(fresh)
+        .then((bundle) => {
+          const payload = (bundle as { channels?: Record<string, Json> })
+            ?.channels?.['mlbb-tournament-state-v2']
+          if (payload != null) setChannel('tournament', payload)
+          sendJson(res, 200, bundle)
+        })
+        .catch((err: Error) => {
+          console.error('[obs-sync] import-form failed:', err)
+          sendJson(res, 500, {
+            ok: false,
+            error: err?.message || 'import failed',
+          })
+        })
+      return
+    }
+
     for (const channel of CHANNELS) {
       const base = `/api/sync/${channel}`
 
@@ -363,6 +621,42 @@ export function obsSyncPlugin(): Plugin {
       else server.httpServer?.once('listening', boot)
     },
     configurePreviewServer(server) {
+      // Fresh form photos live in public/form-media; preview only serves dist.
+      server.middlewares.use((req, res, next) => {
+        const url = req.url?.split('?')[0] ?? ''
+        if (!url.startsWith('/form-media/')) {
+          next()
+          return
+        }
+        const filePath = join(process.cwd(), 'public', url.slice(1))
+        if (!existsSync(filePath)) {
+          next()
+          return
+        }
+        const buf = readFileSync(filePath)
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'image/jpeg')
+        res.setHeader('Cache-Control', 'no-store')
+        res.end(buf)
+      })
+      // Missing hashed assets must 404 — SPA fallback returns index.html and
+      // browsers then throw: Unexpected token '<', "<!doctype "... is not valid JSON
+      server.middlewares.use((req, res, next) => {
+        const url = req.url?.split('?')[0] ?? ''
+        if (!url.startsWith('/assets/')) {
+          next()
+          return
+        }
+        const filePath = join(process.cwd(), 'dist', url.slice(1))
+        if (!existsSync(filePath)) {
+          res.statusCode = 404
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+          res.setHeader('Cache-Control', 'no-store')
+          res.end(`Missing asset: ${url}\nHard-refresh the page (Ctrl+Shift+R).`)
+          return
+        }
+        next()
+      })
       if (server.httpServer) bindUpgrade(server.httpServer)
       server.middlewares.use(middleware)
       const boot = () => {

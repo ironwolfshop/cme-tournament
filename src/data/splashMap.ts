@@ -5,10 +5,6 @@ export const SPLASH_BASE =
   'https://raw.githubusercontent.com/Sparkies01/Splash/main'
 
 export const SPLASH_BY_HERO_NAME: Record<string, SplashRef> = {
-  "Hirara": {
-    "folder": "Hirara",
-    "file": "Basic Skin"
-  },
   "Aamon": {
     "folder": "Aamon",
     "file": "Duke of Shards"
@@ -23,7 +19,7 @@ export const SPLASH_BY_HERO_NAME: Record<string, SplashRef> = {
   },
   "Alice": {
     "folder": "Alice",
-    "file": "Queen of Blood"
+    "file": "Darknet Temptress"
   },
   "Alpha": {
     "folder": "Alpha",
@@ -233,13 +229,13 @@ export const SPLASH_BY_HERO_NAME: Record<string, SplashRef> = {
     "folder": "Helcurt",
     "file": "Dream Prowler"
   },
-  "Hiara": {
-    "folder": "Hiara",
-    "file": "Fallen Scarlet"
-  },
   "Hilda": {
     "folder": "Hilda",
     "file": "Aries"
+  },
+  "Hirara": {
+    "folder": "Hirara",
+    "file": "Fallen Scarlet"
   },
   "Hylos": {
     "folder": "Hylos",

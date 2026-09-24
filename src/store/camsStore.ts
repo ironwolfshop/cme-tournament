@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { loadJson, loadJsonSync, saveJsonFire } from '../lib/appStorage'
 import { fetchSync, pushSync, subscribeSync } from '../lib/obsSync'
 
 export type CamsState = {
@@ -10,6 +11,7 @@ export type CamsState = {
   blueLive: boolean
   redLive: boolean
   casterLive: boolean
+  gameplayLive: boolean
 }
 
 type Actions = {
@@ -20,6 +22,7 @@ type Actions = {
   setTeamLive: (side: 'blue' | 'red', live: boolean) => void
   setCasterLive: (live: boolean) => void
   setSlotLive: (slot: 'blue' | 'red' | 'caster', live: boolean) => void
+  setGameplayLive: (live: boolean) => void
   hydrate: (state: CamsState) => void
 }
 
@@ -38,19 +41,16 @@ function defaults(): CamsState {
     blueLive: false,
     redLive: false,
     casterLive: false,
+    gameplayLive: false,
   }
 }
 
 function loadStored(): CamsState | null {
-  try {
-    const raw =
-      localStorage.getItem(STORAGE_KEY) ??
-      localStorage.getItem('mlbb-team-cams-v1')
-    if (!raw) return null
-    return { ...defaults(), ...(JSON.parse(raw) as Partial<CamsState>) }
-  } catch {
-    return null
-  }
+  const raw =
+    loadJsonSync<Partial<CamsState>>(STORAGE_KEY) ??
+    loadJsonSync<Partial<CamsState>>('mlbb-team-cams-v1')
+  if (!raw) return null
+  return { ...defaults(), ...raw }
 }
 
 function snapshot(s: CamsState): CamsState {
@@ -63,16 +63,13 @@ function snapshot(s: CamsState): CamsState {
     blueLive: s.blueLive,
     redLive: s.redLive,
     casterLive: s.casterLive,
+    gameplayLive: s.gameplayLive,
   }
 }
 
 function push(state: CamsState) {
   if (applyingRemote) return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  } catch {
-    /* ignore */
-  }
+  saveJsonFire(STORAGE_KEY, state)
   pushSync('cams', state)
 }
 
@@ -111,6 +108,10 @@ export const useCamsStore = create<CamsStore>((set, get) => ({
     else set({ redLive: live })
     push(snapshot(get()))
   },
+  setGameplayLive: (gameplayLive) => {
+    set({ gameplayLive })
+    push(snapshot(get()))
+  },
   hydrate: (state) => {
     applyingRemote = true
     set({ ...defaults(), ...state })
@@ -119,24 +120,29 @@ export const useCamsStore = create<CamsStore>((set, get) => ({
 }))
 
 export function initCamsSync() {
+  void loadJson<CamsState>(STORAGE_KEY).then((payload) => {
+    if (payload && typeof payload === 'object') {
+      useCamsStore.getState().hydrate(payload)
+    }
+  })
   subscribeSync('cams', (payload) => {
     if (payload && typeof payload === 'object') {
       useCamsStore.getState().hydrate(payload as CamsState)
     }
   })
-  const isControl =
-    typeof window !== 'undefined' &&
-    window.location.pathname.includes('/control')
-
   void fetchSync('cams').then((payload) => {
     if (payload && typeof payload === 'object') {
       useCamsStore.getState().hydrate(payload as CamsState)
-      return
-    }
-    if (isControl) {
-      pushSync('cams', snapshot(useCamsStore.getState()))
     }
   })
+  if (
+    typeof window !== 'undefined' &&
+    window.location.pathname.includes('/control')
+  ) {
+    window.setTimeout(() => {
+      pushSync('cams', snapshot(useCamsStore.getState()))
+    }, 50)
+  }
 }
 
 export function codesMatch(input: string, expected: string) {
